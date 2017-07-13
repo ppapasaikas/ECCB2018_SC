@@ -3,7 +3,7 @@ title: "SC_Tutorial_part1"
 date: "`r BiocStyle::doc_date()`"
 output: html_document
 author:
-- name: Atul Sethi
+- name: Atul SETHI
   email: atul.sethi@fmi.ch
 - name: Michael Stadler
   email: michael.stadler@fmi.ch
