@@ -17,6 +17,33 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Single Cell Analysis Tutorial Part 1
 
+## Example Dataset 
+
+To illustrate the various aspects of SC analysis, we will use a dataset
+[dataset](http://www.biorxiv.org/content/early/2016/07/08/062919) of
+ induced pluripotent stem cells generated from three different individuals generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
+University of Chicago. The experiments were carried out on the
+Fluidigm C1 platform and to facilitate the quantification both unique
+molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in your working directory.
+
+Load the data and annotations:
+
+```r
+molecules <- read.table("tung/molecules.txt", sep = "\t")
+anno <- read.table("tung/annotation.txt", sep = "\t", header = TRUE)
+```
+
+Inspect a small portion of the expression matrix
+
+```r
+knitr::kable(
+    head(molecules[ , 1:3]), booktabs = TRUE,
+    caption = 'A table of the first 6 rows and 3 columns of the molecules table.'
+)
+```
+
+
+
 ## Gene Count Matrix Characteristics / Dropouts
 
 ## Distribution of cells in terms of Library Size, Genes in termsof Number of Reads
