@@ -1,7 +1,9 @@
 ---
 title: "SC_Tutorial_part1"
 date: "`r BiocStyle::doc_date()`"
-output: html_document
+output: 
+    BiocStyle::html_document2:
+        keep_md: yes
 author:
 - name: Atul SETHI
   email: atul.sethi@fmi.ch
@@ -19,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Example Dataset 
 
-To illustrate the various aspects of SC analysis, we will use a dataset
+To illustrate the various aspects of SC analysis, we will use a 
 [dataset](http://www.biorxiv.org/content/early/2016/07/08/062919) of
  induced pluripotent stem cells generated from three different individuals generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
@@ -28,20 +30,48 @@ molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are 
 
 Load the data and annotations:
 
-```r
-molecules <- read.table("tung/molecules.txt", sep = "\t")
-anno <- read.table("tung/annotation.txt", sep = "\t", header = TRUE)
+```{r load_data}
+umi_counts <- read.table("data/tung/molecules.txt", sep = "\t")
+read_counts <- read.table("data/tung/reads.txt", sep = "\t")
+anno <- read.table("data/tung/annotation.txt", sep = "\t", header = TRUE)
 ```
 
-Inspect a small portion of the expression matrix
+Inspect a small portion of the expression matrix:
 
-```r
-knitr::kable(
-    head(molecules[ , 1:3]), booktabs = TRUE,
-    caption = 'A table of the first 6 rows and 3 columns of the molecules table.'
-)
+```{r small_output, echo=FALSE}
+head(umi_counts[ , 1:3])
 ```
 
+
+
+
+## Inspection of general quantitative traits of the dataset
+
+We will now look into some of the most important general quantitative traits of the dataset.
+These traits provide a first line of quality assessment of the experiment. As such, they can be used
+during data pre-processing as quality filters (see next section).
+These trait inlude:
+
+* Transcript Capture efficiency
+* Library size and Number of detected genes
+* Sensitivity and accuracy (minumum number of RNA molecules required for detection, and relationship of estimated abundance to ground truth)
+* Amplification rate (per gene / per cell)  
+* Ratio between ERCC spike-ins RNAs and endogenous RNAs 
+* Proportion of reads in mitchondrial (MT) genes.
+* Gene dispersion as a function of their mean expression (Mean-vriance trend)
+
+### Capture efficiency is the proportion of transcript molecules present in a cell that are detected in the final cell library.
+Capture efficiency varies widely among different SC RNA seq platforms and can be anywhere between x and y %.
+Capture efficienct can also vary among different cells within a single experiment (e.g because of RNA degradation, incomplete cell lysis...)
+For a given gene the probability of detection is (obviously) a function of its level of expression:
+
+
+
+
+### Amplification rate
+The amplification rate is the number of times a single originating molecule is amplified during library preparation.
+Increased amplification rates in a cell can be indicators  of low starting RNA amounts and thus could pinpoint low quality/spurious cells.
+On the other hand the per gene amplification rates can be useful in determing the level of saturation of the sequenced libraries.
 
 
 ## Gene Count Matrix Characteristics / Dropouts
