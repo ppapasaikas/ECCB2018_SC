@@ -153,8 +153,19 @@ plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19
 ```
 
 ### Gean dispersion as a function of their mean expression (Mean-variance trend)
-Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that the differences due to experimental noise have as small impact as possible on the subsequent analyses.  The 
-
+Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that the differences due to experimental noise have as small impact as possible on subsequent analyses.  
+As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance  decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of rare genes (where big fold change difference can be expected because of chance). This simple intuition is nicely cpatured in a plot of the gene coefficient of variation (variance normalized by the mean) as a function of the mean gene expression, also known as the mean variance trend:
+```{r mean_cv_plot}
+mean_GE=rowMeans(norm_umi_counts+1/ncol(norm_umi_counts))
+gene_cv=apply(norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
+X1=log2(mean_GE[which(rowSums(norm_umi_counts)>0)])
+Y1=log2(gene_cv[which(rowSums(norm_umi_counts)>0)]+1/ncol(norm_umi_counts)  )
+m=nls(Y1 ~ a*X1+b, start=list(a=-5,b=-10)  )
+Yhat=predict(m)
+plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" )
+abline(coef(m)[2],coef(m)[1],col="red",lwd=2,lty=2)
+abline(2,-0.5,col="grey",lwd=2,lty=2)
+```
 
 ## Cell and Gene Filtering
 The goal of this section is to perform a clean-up of the dataset in two dimensions:
