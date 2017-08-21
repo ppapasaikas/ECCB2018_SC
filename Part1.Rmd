@@ -153,12 +153,42 @@ plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19
 ```
 
 ### Gean dispersion as a function of their mean expression (Mean-variance trend)
-Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that the differences due to experimental noise have as small impact as possible on the subsequent analyses.  
+Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that the differences due to experimental noise have as small impact as possible on the subsequent analyses.  The 
 
 
 ## Cell and Gene Filtering
+The goal of this section is to perform a clean-up of the dataset in two dimensions:
+First to remove low quality cells that might otherwise be mistaken for disting meaningful groupings.
+Second to remove uninformative genes so as to bring out the true biological differences and remove as much as possible of the technical variation.
+To this end we shall used several of the indices introduced in the previous section. 
+
+Although the exact parameters of filtering largely depend on the specific platform used and the specific of the experiment the criteria used below are quire general. As a general guideline we should make an effort to remove  clear outlier cells/noisy genes but still be conservative enough so as to avoid throwing out cells/genes with differences of truly biological origin.
+
+### Cell filtering
+We will remove cells according to three criteria introduced above:
+
+* Library size
+* Fraction of ERCC-originating reads
+* Fraction of MT reads
+
+### Gene filtering
+The goal here is to throw out genes that offer no information as to the biological variance of the cells.
+A first simple filter is to remove all genes that are not detected in ANY of the cells:
+
+Second we will use the relationship between average gene expression and gene variance to discard genes whose variance is less than what would be expected solely because of sampling noise. A simple way to achieve this is to fit a curve in the  mean to variance trend intorduced above: 
 
 
-## Normalization for library Size
+This fit assumes that a simple function captures the relationship between mean gene expression and variance. A better (non-parametric) approach is to assume that this relationship varies in different ranges of gene expression. The function below... 
 
-## Visualization (PCA/tSNE)
+
+# Single Cell Analysis Tutorial Part 2
+
+
+## Data Visualization (PCA and tSNE)
+
+## Identification of confounding factors and correction for unwanted sources of variance
+
+## Identification of meaningful biological cell groupings (clustering) 
+
+## Differential gene expression 
+
