@@ -5,7 +5,7 @@ output:
     BiocStyle::html_document2:
         keep_md: yes
 author:
-- name: Atul SETHI
+- name: Atul Sethi
   email: atul.sethi@fmi.ch
 - name: Michael Stadler
   email: michael.stadler@fmi.ch
@@ -50,18 +50,18 @@ that results in high sampling noise. This can be evidenced in the the correlatio
 plot(log2(umi_counts[ , 1]+1), log2(umi_counts[ , 2]+1), pch=19, xlab="Cell1", ylab="Cell2")
 ```
 
-## Inspection of general quantitative traits of the dataset
+## Quality control (QC) and important quantitative traits of the dataset
 
 We will now look into some of the most important general quantitative traits of the dataset.
 These traits provide a first line of quality assessment of the experiment and the individual cells. As such, they can be used
 during data pre-processing as quality filters (see next section).
-These trait inlude:
+These traits inlude:
 
 * Transcript Capture efficiency
 * Library size and Number of detected genes
-* Sensitivity and accuracy (minumum number of RNA molecules required for detection, and relationship of estimated abundance to ground truth)
-* Amplification rate (per gene / per cell)  
+* Sensitivity and accuracy 
 * Ratio between ERCC spike-ins RNAs and endogenous RNAs 
+* Amplification rate (per gene / per cell)  
 * Proportion of reads in mitchondrial (MT) genes.
 * Gene dispersion as a function of their mean expression (Mean-variance trend)
 
@@ -72,7 +72,7 @@ Capture efficiency can also vary among different cells within a single experimen
 For a given gene the probability of detection is (obviously) a function of its level of expression:
 
 ```{r detection_probability}
-smoothScatter(log2(rowSums(umi_counts)+1),rowSums(umi_counts>0)/ncol(umi_counts) ,xlab=expression(Log[2]~"Total count"),ylab="Detection probability"    )
+smoothScatter(log2(rowSums(umi_counts)+1),rowSums(umi_counts>0)/ncol(umi_counts) ,xlab=expression(Log[2]~"Total gene count"),ylab="Detection probability"    )
 ```
 
 ### Library size and number of detected genes.
@@ -89,9 +89,30 @@ hist(colSums(umi_counts>0),  xlab="Library sizes", main="", breaks=20, col="grey
 hist(colSums(umi_counts==0), xlab="Number of dropout values", main="", breaks=20, col="grey80", ylab="Number of cells")
 ```
 
-
 Library size and number of detected genes depend on overall transcript capture efficiency but also on the identity and state of the individual cells.
 
+It is often convenient/useful to normalize the count table to the cells' library sizes:
+```{r library_normalization}
+norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts),FUN="/")*1000000 #Normalize for library size and convert to CPMs
+```
+
+
+### Sensitivity and accuracy
+When ERCC spike-ins are available we can estimate the sensitivity of the experiment, that is, the minimum number of molecules required for detection (an indicator of capture efficiency) as well as its accuracy (relationship estimated abundance to ground truth).
+First we need a list of the features that correspond to ERCCs and their loading concentrations:
+```{r get_ERCC_info}
+ERCC <- rownames(umi_counts)[(grepl("ERCC-", rownames(umi_counts)))]
+#### The following chunk of code could be moved to the helper functions and be transparent
+ERCCdata <- read.table("data/ERCC_conc.txt", sep = "\t",header=TRUE)
+ERCCconc <- as.matrix(ERCCdata[,4])
+dimnames(ERCCconc)=list(ERCCdata[,2],colnames(ERCCdata)[4])
+```
+Now we can plot the ERCC counts in every cell as a function of the ERCCs' loading concentation:
+```{r plot_ERCC_conc}
+smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(as.matrix(norm_umi_counts[ERCC,]+1))),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 UMI counts")
+```
+
+Note that the sensitivity and accuracy values based on the ERCCs are only tough estimates since ERCCs have different capture efficiency and amplification biases from endgenous RNA molecules. 
 
 ### Amplification rate
 The amplification rate is the number of times a single originating molecule is amplified during library preparation.
@@ -99,14 +120,44 @@ Increased amplification rates in a cell can be indicators  of low starting RNA a
 On the other hand the per gene amplification rates can be useful in determing the level of saturation of the sequenced libraries.
 The great advantage of sequencing platforms with UMIs is that amplification rates can be estimated and corrected for:
 
+```{r amplif_rate}
+hist( colMeans(read_counts/(umi_counts+1) ),  xlab="Mean per gene amplification rate", main="", breaks=20, col="grey80", ylab="Number of cells")
+```
 
-## Gene Count Matrix Characteristics / Dropouts
 
-## Distribution of cells in terms of Library Size, Genes in termsof Number of Reads
+### Ratio between ERCC spike-ins and endogenous RNAs
+ERCC spike-ins can also be used for identifying cells of low quality. This can be done by determing the proportion of reads originating from the spike-ins.
+```{r pct_ERCC}
+#### Plot the fraction of ERCC-originating reads as a function of number of detected genes and colout by batch:
+plot (colSums(umi_counts>0),colSums(umi_counts[ERCC,])/colSums(umi_counts) ,pch=19,col= as.numeric(anno[,4]),xlab="Number of detected genes",ylab="Fraction of ERCC originating reads")
+```
+High fraction of ERCC originating molecules point to low starting cell RNA amounts.
+Here we can observe the number of detected genes is a decreasing fraction of the fraction of ERCC originating reads. In addition there is one batch that appears problematic in that its cells have consistently a higher fraction of ERCC-originating reads.
 
-## Cell QC and Filtering
 
-## Technical and Biological Variation(mean 2 CV plot)
+### Proportion of mitochondrial (MT) reads
+The proportion of MT reads is another useful indicator of cell quality. High numbers of MT reads can be associated to cell damage.
+First we construct a list of the gene features of MT origin:
+```{r get_MT_genes}
+mt <- c("ENSG00000198899", "ENSG00000198727", "ENSG00000198888",
+        "ENSG00000198886", "ENSG00000212907", "ENSG00000198786",
+        "ENSG00000198695", "ENSG00000198712", "ENSG00000198804",
+        "ENSG00000198763", "ENSG00000228253", "ENSG00000198938",
+        "ENSG00000198840")
+```
+
+Next we will plot the fraction of MT UMIs as a proportion of the total and color by batch:
+```{r pct_MT}
+#### Plot the fraction of ERCC-originating reads as a function of number of detected genes and colout by batch:
+plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19,col= as.numeric(anno[,4]),xlab="Number of detected genes",ylab="Fraction of MT reads")
+```
+
+### Gean dispersion as a function of their mean expression (Mean-variance trend)
+Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that the differences due to experimental noise have as small impact as possible on the subsequent analyses.  
+
+
+## Cell and Gene Filtering
+
 
 ## Normalization for library Size
 
