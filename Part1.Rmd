@@ -42,13 +42,18 @@ Inspect a small portion of the expression matrix:
 head(umi_counts[ , 1:3])
 ```
 
+The most important characteristic of all SC RNAseq assays that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
+that results in high sampling noise. This can be evidenced in the the correlation of gene counts between pairs of cells:
 
 
+```{r cell2cell}
+plot(log2(umi_counts[ , 1]+1), log2(umi_counts[ , 2]+1), pch=19, xlab="Cell1", ylab="Cell2")
+```
 
 ## Inspection of general quantitative traits of the dataset
 
 We will now look into some of the most important general quantitative traits of the dataset.
-These traits provide a first line of quality assessment of the experiment. As such, they can be used
+These traits provide a first line of quality assessment of the experiment and the individual cells. As such, they can be used
 during data pre-processing as quality filters (see next section).
 These trait inlude:
 
@@ -58,20 +63,41 @@ These trait inlude:
 * Amplification rate (per gene / per cell)  
 * Ratio between ERCC spike-ins RNAs and endogenous RNAs 
 * Proportion of reads in mitchondrial (MT) genes.
-* Gene dispersion as a function of their mean expression (Mean-vriance trend)
+* Gene dispersion as a function of their mean expression (Mean-variance trend)
 
-### Capture efficiency is the proportion of transcript molecules present in a cell that are detected in the final cell library.
+### Transcript Capture efficiency
+Capture efficiency is the proportion of transcript molecules present in a cell that are detected in the final cell library.
 Capture efficiency varies widely among different SC RNA seq platforms and can be anywhere between x and y %.
-Capture efficienct can also vary among different cells within a single experiment (e.g because of RNA degradation, incomplete cell lysis...)
+Capture efficiency can also vary among different cells within a single experiment (e.g because of RNA degradation, incomplete cell lysis...)
 For a given gene the probability of detection is (obviously) a function of its level of expression:
 
+```{r detection_probability}
+smoothScatter(log2(rowSums(umi_counts)+1),rowSums(umi_counts>0)/ncol(umi_counts) ,xlab=expression(Log[2]~"Total count"),ylab="Detection probability"    )
+```
 
+### Library size and number of detected genes.
+Library size is the number of unique transcript molecules that are detected in a cell:
+
+```{r library_size}
+hist(colSums(umi_counts)/1e6, xlab="Library size (millions)", main="", breaks=20, col="grey80", ylab="Number of cells")
+```
+
+Two indices related to library size are the number of detected genes and its converse, the number of dropout values (undetected genes):
+```{r ndet_genes}
+par(mfrow=c(1,2))
+hist(colSums(umi_counts>0),  xlab="Library sizes", main="", breaks=20, col="grey80", ylab="Number of cells")
+hist(colSums(umi_counts==0), xlab="Number of dropout values", main="", breaks=20, col="grey80", ylab="Number of cells")
+```
+
+
+Library size and number of detected genes depend on overall transcript capture efficiency but also on the identity and state of the individual cells.
 
 
 ### Amplification rate
 The amplification rate is the number of times a single originating molecule is amplified during library preparation.
 Increased amplification rates in a cell can be indicators  of low starting RNA amounts and thus could pinpoint low quality/spurious cells.
 On the other hand the per gene amplification rates can be useful in determing the level of saturation of the sequenced libraries.
+The great advantage of sequencing platforms with UMIs is that amplification rates can be estimated and corrected for:
 
 
 ## Gene Count Matrix Characteristics / Dropouts
