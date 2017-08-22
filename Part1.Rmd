@@ -42,6 +42,11 @@ Inspect a small portion of the expression matrix:
 head(umi_counts[ , 1:3])
 ```
 
+We will also load a few functions that will be used during the training:
+```{r source_helper_functions}
+source("helper_functions.R")
+```
+
 The most important characteristic of all SC RNAseq assays that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
 that results in high sampling noise. This can be evidenced in the the correlation of gene counts between pairs of cells:
 
@@ -155,7 +160,7 @@ plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19
 
 ### Gean dispersion as a function of their mean expression (Mean-variance trend)
 Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that differences due to experimental noise have as small an impact as possible on subsequent analyses.  
-As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected because of chance). This simple intuition is nicely cpatured in a plot of the gene coefficient of variation (variance normalized by the mean) as a function of the mean gene expression, also known as the *mean variance trend*:
+As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected because of chance). This simple intuition is nicely cpatured in a plot of the gene's dispersion as a function of the mean gene expression also known as the *mean variance trend*. Here as a measure of dispersion we will use the coefficient of variation (cv=variance/mean):
 
 ```{r mean_cv_plot}
 mean_GE=rowMeans(norm_umi_counts+1/ncol(norm_umi_counts))
@@ -197,24 +202,70 @@ one batch  (NA19098.r2) appeared particurarly problematic in this respect and we
 high_ERCC=which(anno[,4]=="NA19098.r2")
 ```
 
-* Fraction of MT reads
+* Fraction of MT reads: As noted previously high fractions of MT reads might indicate damaged cells. We will look, as in the case of number of detected genes, for a point in the plot of the fraction of MT reads of the cells sorted by their rank a point where values appear to rise sharply:
 ```{r filter_high_MT}
 fractionMTreads=colSums(umi_counts[mt,])/colSums(umi_counts)
 plot (  rank(fractionMTreads)  , fractionMTreads,col=as.numeric(anno[,4]),pch=19 )
-abline(0.12,0,col="red")
-high_MT=which(fractionMTreads>0.12)
+abline(0.11,0,col="red")
+high_MT=which(fractionMTreads>0.11)
+```
+
+We will now combine the three applied filters to obtain a list of all cells that will be removed and obtain filtered versions of our data:
+```{r filter_cells}
+filtered_cells=unique(c(low_NODG,high_ERCC,high_MT))
+clean_umi_counts=umi_counts[,-filtered_cells]
+clean_norm_umi_counts=norm_umi_counts[,-filtered_cells] 
+clean_anno=anno[,-filtered_cells]
 ```
 
 
-
 ### Gene filtering
-The goal here is to throw out genes that offer no information as to the biological variance of the cells.
-A first simple filter is to remove all genes that are not detected in ANY of the cells:
+The goal here is to throw out genes that offer no information as to the biological variance of the cells. We will now work on the cell-filtered version of our data.
+A first simple gene filter is to remove all genes that are not detected in ANY of the remaining cells:
+```{r absent_genes}
+absent_genes=which(rowSums(clean_umi_counts)==0)
+clean_umi_counts=clean_umi_counts[-absent_genes,]
+clean_norm_umi_counts=clean_norm_umi_counts[-absent_genes,] 
+```
 
-Second we will use the relationship between average gene expression and gene variance to discard genes whose variance is less than what would be expected solely because of sampling noise. A simple way to achieve this is to fit a curve in the  mean to variance trend intorduced above: 
+A second more elaborate filter will aim to remove genes that do not present cell-to-cell fluctuations above of what is expected due to technical variation. 
+One possible approach would be to use the mena-variance trend constructed above and keep only the overdispersed genes (genes above the fitted line):
+```{r mean_cv_plot2}
+mean_GE=rowMeans(clean_norm_umi_counts+1/ncol(clean_norm_umi_counts))
+gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
+X1=log2(mean_GE)
+Y1=log2(gene_cv+1/ncol(clean_norm_umi_counts)  )
+m=lm(Y1 ~ X1)
+Yhat=predict(m)
+col=rep("black",length(Y1))
+col[which(Yhat>Y1)]="grey"
+plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch=19 ,col=col)
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+```
+
+A somewhat better approach that relies on fewer assumptions about the mean-variance relationship is to split the genes in bins according to their gene expression and then select the top x% overdispersed genes from every bin. This is achieved using the select_variable_genes function which can be found in the helper functions.R script:
+```{r select_overdispersed}
+n_genes_keep=ceiling(0.5*nrow(clean_norm_umi_counts) ) #In the end retain only the top 50% overdispersed genes
+norm_GeneDispersion <- select_variable_genes(clean_norm_umi_counts)
+disp_cut_off <- sort(norm_GeneDispersion,decreasing=TRUE)[n_genes_keep]
+genes_keep <- norm_GeneDispersion >= disp_cut_off
+```
+
+Let's look where our selected genes fall on our mean-variance trend plot:
+```{r mean_cv_plot3}
+col=rep("grey",length(Y1))
+col[genes_keep]="black"
+plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+```
+
+In order to check and compare later on the effects of selecting only overdispersed genes we will create new gene-filtered version of our data:
+```{r filter_genes}
+clean_umi_counts2=clean_umi_counts[genes_keep,]
+clean_norm_umi_counts2=clean_norm_umi_counts[genes_keep,] #
+```
 
 
-This fit assumes that a simple function captures the relationship between mean gene expression and variance. A better (non-parametric) approach is to assume that this relationship varies in different ranges of gene expression. The function below... 
 
 
 # Single Cell Analysis Tutorial Part 2
