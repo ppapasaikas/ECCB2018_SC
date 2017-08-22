@@ -44,12 +44,12 @@ head(umi_counts[ , 1:3])
 ```
 
 We will also load a few functions that will be used during the training:
-```{r source_helper_functions}
+```{r source_helper_functions, echo=FALSE}
 source("helper_functions.R")
 ```
 
 The most important characteristic of all SC RNAseq assays that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
-that results in high sampling noise. This can be evidenced in the the correlation of gene counts between pairs of cells:
+that results in high sampling noise. This can be evidenced in the correlation of gene counts between pairs of cells:
 
 
 ```{r cell2cell}
@@ -159,9 +159,9 @@ Next we will plot the fraction of MT UMIs as a proportion of the total and color
 plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19,col= as.numeric(anno[,4]),xlab="Number of detected genes",ylab="Fraction of MT reads")
 ```
 
-### Gean dispersion as a function of their mean expression (Mean-variance trend)
+### Gene dispersion as a function of their mean expression (Mean-variance trend)
 Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that differences due to experimental noise have as small an impact as possible on subsequent analyses.  
-As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected because of chance). This simple intuition is nicely cpatured in a plot of the gene's dispersion as a function of the mean gene expression also known as the *mean variance trend*. Here as a measure of dispersion we will use the coefficient of variation (cv=variance/mean):
+As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected just because of chance). This simple intuition is nicely captured in a plot of the gene's dispersion as a function of the mean gene expression also known as the *mean variance trend*. Here as a measure of dispersion we will use the coefficient of variation (cv=variance/mean):
 
 ```{r mean_cv_plot}
 mean_GE=rowMeans(norm_umi_counts+1/ncol(norm_umi_counts))
@@ -180,11 +180,11 @@ Genes that fall far above this line are  *overdispersed* and should be enriched 
 
 ## Cell and Gene Filtering
 The goal of this section is to perform a clean-up of the dataset in two dimensions:
-First to remove low quality cells that might otherwise be mistaken for disting meaningful groupings.
+First to remove low quality cells that might otherwise be mistaken for distinct meaningful groupings.
 Second to remove uninformative genes so as to bring out the true biological differences and remove as much as possible of the technical variation.
-To this end we shall used several of the indices introduced in the previous section. 
+To this end we shall use several of the indices introduced in the previous section. 
 
-Although the exact parameters of filtering largely depend on the specific platform used and the specific of the experiment the criteria used below are quire general. As a general guideline we should make an effort to remove  clear outlier cells/noisy genes but still be conservative enough so as to avoid throwing out cells/genes with differences of truly biological origin.
+Although the exact parameters of filtering largely depend on the specific platform used and the specifics of the experiment the criteria used below can be applied with small modifications to any SC experiment. As a general guideline we should make an effort to remove  clear outlier cells/noisy genes but still be conservative enough so as to avoid throwing out cells/genes with differences of truly biological origin.
 
 ### Cell filtering
 We will remove cells according to three criteria introduced above:
@@ -197,13 +197,13 @@ abline(5500,0,col="red")
 low_NODG=which(NODG<5500)
 ```
 
-* Fraction of ERCC-originating reads: As mentioned above high fractions of ERCC-originating reads are also indicative of low cell quality. We already say that 
+* Fraction of ERCC-originating reads: As mentioned above high fractions of ERCC-originating reads are also indicative of low cell quality. We already saw that 
 one batch  (NA19098.r2) appeared particurarly problematic in this respect and we shall therefore remove it.
 ```{r filter_high_ERCC}
 high_ERCC=which(anno[,4]=="NA19098.r2")
 ```
 
-* Fraction of MT reads: As noted previously high fractions of MT reads might indicate damaged cells. We will look, as in the case of number of detected genes, for a point in the plot of the fraction of MT reads of the cells sorted by their rank a point where values appear to rise sharply:
+* Fraction of MT reads: As noted previously high fractions of MT reads might indicate damaged cells. We will look, as in the case of number of detected genes, for a point in the plot where the fraction of MT reads of the cells when sorted by their rank appear to rise sharply:
 ```{r filter_high_MT}
 fractionMTreads=colSums(umi_counts[mt,])/colSums(umi_counts)
 plot (  rank(fractionMTreads)  , fractionMTreads,col=as.numeric(anno[,4]),pch=19 )
@@ -230,7 +230,7 @@ clean_norm_umi_counts=clean_norm_umi_counts[-absent_genes,]
 ```
 
 A second more elaborate filter will aim to remove genes that do not present cell-to-cell fluctuations above of what is expected due to technical variation. 
-One possible approach would be to use the mena-variance trend constructed above and keep only the overdispersed genes (genes above the fitted line):
+One possible approach would be to use the mean-variance trend fit constructed above and keep only genes falling above the fitted line:
 ```{r mean_cv_plot2}
 mean_GE=rowMeans(clean_norm_umi_counts+1/ncol(clean_norm_umi_counts))
 gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
@@ -266,12 +266,12 @@ As you can see the effect on this particular dataset is very subtle compared to 
 
 
 ## Data Visualization (PCA and tSNE)
-In this section we will illustrate different ways to visualize our data using two commonly used approaches namely Principal Component Analysis (PCA) and t-Distributed Stochastic Neighbor Embedding (tSNE). We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes on data visualization. 
+In this section we will illustrate different ways to visualize our data using two commonly used approaches, namely Principal Component Analysis (PCA) and t-Distributed Stochastic Neighbor Embedding (tSNE). We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes for data visualization (and consequently cell clustering). 
 
 ### PCA
 Principal Component Analysis is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
 
-A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with  a number of new features that is only a small fraction of the original ones.
+A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with a number of new features that is only a small fraction of the original ones.
 
 
 ## Identification of confounding factors and correction for unwanted sources of variance
