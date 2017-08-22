@@ -118,7 +118,7 @@ Now we can plot the ERCC counts in every cell as a function of the ERCCs' loadin
 smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(as.matrix(norm_umi_counts[ERCC,]+1))),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 UMI counts")
 ```
 
-Note that the sensitivity and accuracy values based on the ERCCs are only tough estimates since ERCCs have different capture efficiency and amplification biases from endgenous RNA molecules. 
+Note that the sensitivity and accuracy values based on the ERCCs are only rough estimates since ERCCs have different capture efficiency and amplification biases from endgenous RNA molecules. 
 
 ### Amplification rate
 The amplification rate is the number of times a single originating molecule is amplified during library preparation.
