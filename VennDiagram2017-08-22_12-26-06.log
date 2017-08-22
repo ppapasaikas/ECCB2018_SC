@@ -1,0 +1,7 @@
+INFO [2017-08-22 12:26:07] [[1]]
+INFO [2017-08-22 12:26:07] list(low_NODG, high_ERCC)
+INFO [2017-08-22 12:26:07] 
+INFO [2017-08-22 12:26:07] $filename
+INFO [2017-08-22 12:26:07] NULL
+INFO [2017-08-22 12:26:07] 
+ERROR [2017-08-22 12:26:07] Unexpected parameter length for 'category'
