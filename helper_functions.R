@@ -4,8 +4,9 @@ require("plyr")
 #' https://github.com/10XGenomics/single-cell-3prime-paper/
 #'
 #' @param m  a (protentially sparse) gene x cells count matrix
-#' @return a vector of normalized (robust Z-scores) dispersion values, one per gene.
-select_variable_genes<-function(m) {
+#' @param f  a number between 0 and 1 the fraction of overdispersed genes to keep
+#' @return a vector of the indices of genes to keep.
+select_variable_genes<-function(m,f) {
   df<-data.frame(mean=rowMeans(m+1/ncol(m)),cv=apply(m,1,sd)/rowMeans(m+1/ncol(m)),var=apply(m,1,var))
   df$dispersion<-with(df,var/mean)
   df$mean_bin<-with(df,cut(mean,breaks=c(-Inf,unique(quantile(mean,seq(0.1,1,0.05),na.rm=TRUE) )  ,Inf)))
@@ -16,5 +17,10 @@ select_variable_genes<-function(m) {
   df$bin_disp_median<-var_by_bin$bin_median[match(df$mean_bin,var_by_bin$mean_bin)]
   df$bin_disp_mad<-var_by_bin$bin_mad[match(df$mean_bin,var_by_bin$mean_bin)]
   df$dispersion_norm<-with(df,(dispersion-bin_disp_median)/(bin_disp_mad+0.01) )
-  return(df$dispersion_norm)
+
+  n_genes_keep=ceiling(f*nrow(m) ) #In the end retain only the top 100*f% overdispersed genes
+  disp_cut_off <- sort(df$dispersion_norm,decreasing=TRUE)[n_genes_keep]
+  genes_keep <- which(df$dispersion_norm >= disp_cut_off)
+  
+  return(genes_keep)
 }

@@ -4,6 +4,7 @@ date: "`r BiocStyle::doc_date()`"
 output: 
     BiocStyle::html_document2:
         keep_md: yes
+        toc_float: true
 author:
 - name: Atul Sethi
   email: atul.sethi@fmi.ch
@@ -245,11 +246,10 @@ abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the d
 
 A somewhat better approach that relies on fewer assumptions about the mean-variance relationship is to split the genes in bins according to their gene expression and then select the top x% overdispersed genes from every bin. This is achieved using the select_variable_genes function which can be found in the helper functions.R script:
 ```{r select_overdispersed}
-n_genes_keep=ceiling(0.5*nrow(clean_norm_umi_counts) ) #In the end retain only the top 50% overdispersed genes
-norm_GeneDispersion <- select_variable_genes(clean_norm_umi_counts)
-disp_cut_off <- sort(norm_GeneDispersion,decreasing=TRUE)[n_genes_keep]
-genes_keep <- norm_GeneDispersion >= disp_cut_off
+##Specify the normalized count matrix and fraction of overdispersed genes to retain:
+genes_keep <- select_variable_genes(clean_norm_umi_counts,0.5)
 ```
+
 
 Let's look where our selected genes fall on our mean-variance trend plot:
 ```{r mean_cv_plot3}
@@ -260,19 +260,18 @@ abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the d
 ```
 As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
 
-In order to check and compare later on the effects of selecting only overdispersed genes we will create new gene-filtered version of our data:
-```{r filter_genes}
-clean_umi_counts2=clean_umi_counts[genes_keep,]
-clean_norm_umi_counts2=clean_norm_umi_counts[genes_keep,] #
-```
-
-
 
 
 # Single Cell Analysis Tutorial Part 2
 
 
 ## Data Visualization (PCA and tSNE)
+In this section we will illustrate different ways to visualize our data using two commonly used approaches namely Principal Component Analysis (PCA) and t-Distributed Stochastic Neighbor Embedding (tSNE). We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes on data visualization. 
+
+### PCA
+Principal Component Analysis is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
+A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with  a number of new features that is only a small fraction of the original ones.
+
 
 ## Identification of confounding factors and correction for unwanted sources of variance
 
