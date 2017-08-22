@@ -1,7 +1,0 @@
-INFO [2017-08-22 12:27:28] [[1]]
-INFO [2017-08-22 12:27:28] list(low_NODG, high_MT)
-INFO [2017-08-22 12:27:28] 
-INFO [2017-08-22 12:27:28] $filename
-INFO [2017-08-22 12:27:28] NULL
-INFO [2017-08-22 12:27:28] 
-ERROR [2017-08-22 12:27:28] Unexpected parameter length for 'category'

@@ -130,6 +130,7 @@ ERCC spike-ins can also be used for identifying cells of low quality. This can b
 ```{r pct_ERCC}
 #### Plot the fraction of ERCC-originating reads as a function of number of detected genes and colout by batch:
 plot (colSums(umi_counts>0),colSums(umi_counts[ERCC,])/colSums(umi_counts) ,pch=19,col= as.numeric(anno[,4]),xlab="Number of detected genes",ylab="Fraction of ERCC originating reads")
+legend ("topleft",legend=unique(anno[,4]),  col= as.numeric(unique(anno[,4])),pch=19, title="Batch" )
 ```
 High fraction of ERCC originating molecules point to low starting cell RNA amounts.
 Here we can observe the number of detected genes is a decreasing fraction of the fraction of ERCC originating reads. In addition there is one batch that appears problematic in that its cells have consistently a higher fraction of ERCC-originating reads.
@@ -148,24 +149,27 @@ mt <- c("ENSG00000198899", "ENSG00000198727", "ENSG00000198888",
 
 Next we will plot the fraction of MT UMIs as a proportion of the total and color by batch:
 ```{r pct_MT}
-#### Plot the fraction of ERCC-originating reads as a function of number of detected genes and colout by batch:
+#### Plot the fraction of MT reads as a function of number of detected genes and colout by batch:
 plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19,col= as.numeric(anno[,4]),xlab="Number of detected genes",ylab="Fraction of MT reads")
 ```
 
 ### Gean dispersion as a function of their mean expression (Mean-variance trend)
-Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that the differences due to experimental noise have as small impact as possible on subsequent analyses.  
-As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance  decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of rare genes (where big fold change difference can be expected because of chance). This simple intuition is nicely cpatured in a plot of the gene coefficient of variation (variance normalized by the mean) as a function of the mean gene expression, also known as the mean variance trend:
+Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that differences due to experimental noise have as small an impact as possible on subsequent analyses.  
+As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected because of chance). This simple intuition is nicely cpatured in a plot of the gene coefficient of variation (variance normalized by the mean) as a function of the mean gene expression, also known as the *mean variance trend*:
 ```{r mean_cv_plot}
 mean_GE=rowMeans(norm_umi_counts+1/ncol(norm_umi_counts))
 gene_cv=apply(norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 X1=log2(mean_GE[which(rowSums(norm_umi_counts)>0)])
 Y1=log2(gene_cv[which(rowSums(norm_umi_counts)>0)]+1/ncol(norm_umi_counts)  )
-m=nls(Y1 ~ a*X1+b, start=list(a=-5,b=-10)  )
-Yhat=predict(m)
+m=lm(Y1 ~ X1)
 plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" )
-abline(coef(m)[2],coef(m)[1],col="red",lwd=2,lty=2)
-abline(2,-0.5,col="grey",lwd=2,lty=2)
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
 ```
+Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (because of sampling).
+Genes that fall far above this line are  *overdispersed* and should be enriched for genes the fluctuation of which is of biological origin. 
+
+
 
 ## Cell and Gene Filtering
 The goal of this section is to perform a clean-up of the dataset in two dimensions:
@@ -178,9 +182,29 @@ Although the exact parameters of filtering largely depend on the specific platfo
 ### Cell filtering
 We will remove cells according to three criteria introduced above:
 
-* Library size
-* Fraction of ERCC-originating reads
+* Number of detected genes: In a plot of the number of the detected genes of the cells vs the corresponding rank we often observe a point of sudden drop (a shoulder). Numbers below that point might indicate damaged cells:
+```{r filter_low_NODG}
+NODG=colSums(umi_counts>0)
+plot (  rank(-NODG)  , NODG ,col=as.numeric(anno[,4]),pch=19 )
+abline(5500,0,col="red")
+low_NODG=which(NODG<5500)
+```
+
+* Fraction of ERCC-originating reads: As mentioned above high fractions of ERCC-originating reads are also indicative of low cell quality. We already say that 
+one batch  (NA19098.r2) appeared particurarly problematic in this respect and we shall therefore remove it.
+```{r filter_high_ERCC}
+high_ERCC=which(anno[,4]=="NA19098.r2")
+```
+
 * Fraction of MT reads
+```{r filter_high_MT}
+fractionMTreads=colSums(umi_counts[mt,])/colSums(umi_counts)
+plot (  rank(fractionMTreads)  , fractionMTreads,col=as.numeric(anno[,4]),pch=19 )
+abline(0.12,0,col="red")
+high_MT=which(fractionMTreads>0.12)
+```
+
+
 
 ### Gene filtering
 The goal here is to throw out genes that offer no information as to the biological variance of the cells.
@@ -202,4 +226,10 @@ This fit assumes that a simple function captures the relationship between mean g
 ## Identification of meaningful biological cell groupings (clustering) 
 
 ## Differential gene expression 
+
+```{r setup_documentation, echo=FALSE, message=FALSE, results='hide'}
+#### Copy the created html to master root as index.html
+#### and the md as README.md
+  file.copy("Part1.html","index.html",overwrite=TRUE)
+```
 
