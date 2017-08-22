@@ -258,6 +258,7 @@ col[genes_keep]="black"
 plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 ```
+As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
 
 In order to check and compare later on the effects of selecting only overdispersed genes we will create new gene-filtered version of our data:
 ```{r filter_genes}
