@@ -216,7 +216,7 @@ We will now combine the three applied filters to obtain a list of all cells that
 filtered_cells=unique(c(low_NODG,high_ERCC,high_MT))
 clean_umi_counts=umi_counts[,-filtered_cells]
 clean_norm_umi_counts=norm_umi_counts[,-filtered_cells] 
-clean_anno=anno[,-filtered_cells]
+clean_anno=anno[-filtered_cells,]
 ```
 
 
@@ -266,11 +266,88 @@ As you can see the effect on this particular dataset is very subtle compared to 
 
 
 ## Data Visualization (PCA and tSNE)
-In this section we will illustrate different ways to visualize our data using two commonly used approaches, namely Principal Component Analysis (PCA) and t-Distributed Stochastic Neighbor Embedding (tSNE). We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes for data visualization (and consequently cell clustering). 
+In this section we will illustrate different ways to visualize our data using two commonly used projection techniques, namely Principal Component Analysis (PCA) and t-Distributed Stochastic Neighbor Embedding (tSNE). We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes for data visualization (and consequently cell clustering). 
 
 ### PCA
 Principal Component Analysis is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
 A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with a number of new features that is only a small fraction of the original ones.
+
+
+* PCA without selecting for overdispersed genes. 
+
+We will try PCA without any filter for dispersion but feeding in two different transformations of the data; A simple log transformation of the count matrix and the cell to cell correlation matrix.
+First let's perform PCA on the two versions of the data and look at the proportion of explained variance by the first 50 components:
+
+```{r PCA_no_selection}
+LogTransf_counts=log2(clean_norm_umi_counts+1)
+PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+PCA_cor=prcomp(x=cor(log2(clean_norm_umi_counts+1)),scale=T) 
+par(mfrow=c(1,2))
+plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
+plot(summary(PCA_cor)$importance[3,1:50],type="l",xlab="#PC (Cell2Cell cor.)",ylab="Cum. Proportion of Explained Variance")
+Log_NODG=log2(colSums(clean_norm_umi_counts>0)+1) # Calculate also the number of detected genes (to use later in plotting)
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2],PCA_cor=PCA_cor$x[,1:2])  # to ease plotting combine results in a dataframe 
+```
+
+Now let's project...
+First using the PCA on the Log transformed data:
+```{r PCA_no_selection_plot1}
+chart_logNODG=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+And then using the PCA on the cell2cell correlation:
+```{r PCA_no_selection_plot2}
+chart_logNODG=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+
+
+* PCA after selecting for overdispersed genes. 
+
+We will now see what is the effect on selecting overdispersed genes prior to PCA. Let's select the top 25% overdispersed genes and perform PCA on this subset of our dataset:
+```{r PCA_selection}
+genes_keep <- select_variable_genes(clean_norm_umi_counts,0.25)
+LogTransf_counts=log2(clean_norm_umi_counts[genes_keep,]+1)
+PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+PCA_cor=prcomp(x=cor(log2(clean_norm_umi_counts+1)),scale=T) 
+par(mfrow=c(1,2))
+plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
+plot(summary(PCA_cor)$importance[3,1:50],type="l",xlab="#PC (Cell2Cell cor.)",ylab="Cum. Proportion of Explained Variance")
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2],PCA_cor=PCA_cor$x[,1:2])  # to ease plotting combine results in a dataframe 
+```
+
+
+Let's project again...
+First using the PCA on the Log transformed data:
+```{r PCA_selection_plot1}
+chart_logNODG=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+And then using the PCA on the cell2cell correlation:
+```{r PCA_selection_plot2}
+chart_logNODG=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+
+
+
+
 
 
 ## Identification of confounding factors and correction for unwanted sources of variance

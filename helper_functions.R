@@ -1,4 +1,7 @@
 require("plyr")
+require("ggplot2")
+require("gridExtra")
+
 
 #' This is the function for selection of overdispersed genes adapted from:
 #' https://github.com/10XGenomics/single-cell-3prime-paper/
