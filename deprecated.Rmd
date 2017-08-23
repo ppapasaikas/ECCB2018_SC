@@ -1,0 +1,72 @@
+
+We will try PCA without any filter for dispersion but feeding in two different transformations of the data; A simple log transformation of the count matrix and the cell to cell correlation matrix.
+First let's perform PCA on the two versions of the data and look at the proportion of explained variance by the first 50 components:
+
+```{r PCA_no_selection}
+endog=setdiff(rownames(clean_norm_umi_counts),ERCC) #Use only endogenous genes (remove ERCCs)
+LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
+PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+PCA_cor=prcomp(x=cor(log2(clean_norm_umi_counts[endog,]+1)),scale=T) 
+par(mfrow=c(1,2))
+plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
+plot(summary(PCA_cor)$importance[3,1:50],type="l",xlab="#PC (Cell2Cell cor.)",ylab="Cum. Proportion of Explained Variance")
+Log_NODG=log2(colSums(clean_norm_umi_counts>0)+1) # Calculate also the number of detected genes (to use later in plotting)
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2],PCA_cor=PCA_cor$x[,1:2])  # to ease plotting combine results in a dataframe 
+```
+
+Now let's project...
+First using the PCA on the Log transformed data:
+  ```{r PCA_no_selection_plot1}
+chart_logNODG=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+And then using the PCA on the cell2cell correlation:
+  ```{r PCA_no_selection_plot2}
+chart_logNODG=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+
+
+* PCA after selecting for overdispersed genes. 
+
+We will now see what is the effect on selecting overdispersed genes prior to PCA. Let's select the top 25% overdispersed genes and perform PCA on this subset of our dataset:
+```{r PCA_selection}
+genes_keep <- select_variable_genes(clean_norm_umi_counts,0.25) #Select the top 25% of overdispersed genes
+endog=setdiff(rownames(clean_norm_umi_counts[genes_keep,]),ERCC) #Use only endogenous genes (remove ERCCs)
+LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
+PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+PCA_cor=prcomp(x=cor(log2(clean_norm_umi_counts[endog,]+1)),scale=T) 
+par(mfrow=c(1,2))
+plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
+plot(summary(PCA_cor)$importance[3,1:50],type="l",xlab="#PC (Cell2Cell cor.)",ylab="Cum. Proportion of Explained Variance")
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2],PCA_cor=PCA_cor$x[,1:2])  # to ease plotting combine results in a dataframe 
+```
+
+
+Let's project again...
+First using the PCA on the Log transformed data:
+  ```{r PCA_selection_plot1}
+chart_logNODG=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
+And then using the PCA on the cell2cell correlation:
+  ```{r PCA_selection_plot2}
+chart_logNODG=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA_cor.PC1,y=PCA_cor.PC2,color=Batch))
+chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_logNODG, chart_batch, ncol=1)
+```
