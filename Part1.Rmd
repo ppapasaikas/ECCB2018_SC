@@ -327,7 +327,23 @@ grid.arrange(chart_logNODG, chart_batch, ncol=1)
 
 
 
+### tSNE
+tSNE is a **non-linear**, **stochastic**  projection technique that attempts to find a mapping of the data on a low subspace while preserving local distances between cells.
+The non-linear character of tSNE means that often is will produce projections that better resolve differences between cell groups. The better separation of tSNE comes at the cost of interpretability:
+While in a tSNE projection similar cells are guaranteed to end up nearby, longer distances in the projection **cannot** are not guaranteed to reflect true relationships. This means that it is risky to draw conclusions of "similarity" or "dissimilarity" from the positional relationships of different cell groupings that appear in a tSNE projection.
+In addition, the stochastic nature of tSNE means that every time the algorithm is applied a different projection will be produced **unlesss a random seed is set**. 
 
+```{r tSNE_no_selection_plot}
+tSNE=Rtsne(X=PCA_log$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_log$x)))),theta=0.25,pca=F,is_distance = F)  
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
+chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
+chart_tSNE1=chart_tSNE1+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_tSNE1=chart_tSNE1+geom_point(size=4,alpha=0.8)
+chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
+chart_tSNE2=chart_tSNE2+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
+
+```
 
 
 ## Identification of confounding factors and correction for unwanted sources of variance
