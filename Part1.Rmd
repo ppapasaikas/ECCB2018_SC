@@ -187,7 +187,7 @@ To this end we shall use several of the indices introduced in the previous secti
 Although the exact parameters of filtering largely depend on the specific platform used and the specifics of the experiment the criteria used below can be applied with small modifications to any SC experiment. As a general guideline we should make an effort to remove  clear outlier cells/noisy genes but still be conservative enough so as to avoid throwing out cells/genes with differences of truly biological origin.
 
 ### Cell filtering
-We will remove cells according to three criteria introduced above:
+We will remove cells according to two criteria introduced above:
 
 * Number of detected genes: In a plot of the number of the detected genes of the cells vs the corresponding rank we often observe a point of sudden drop (a shoulder). Numbers below that point might indicate damaged cells:
 ```{r filter_low_NODG}
@@ -197,11 +197,6 @@ abline(5500,0,col="red")
 low_NODG=which(NODG<5500)
 ```
 
-* Fraction of ERCC-originating reads: As mentioned above high fractions of ERCC-originating reads are also indicative of low cell quality. We already saw that 
-one batch  (NA19098.r2) appeared particurarly problematic in this respect and we shall therefore remove it.
-```{r filter_high_ERCC}
-high_ERCC=which(anno[,4]=="NA19098.r2")
-```
 
 * Fraction of MT reads: As noted previously high fractions of MT reads might indicate damaged cells. We will look, as in the case of number of detected genes, for a point in the plot where the fraction of MT reads of the cells when sorted by their rank appear to rise sharply:
 ```{r filter_high_MT}
@@ -213,7 +208,7 @@ high_MT=which(fractionMTreads>0.11)
 
 We will now combine the three applied filters to obtain a list of all cells that will be removed and obtain filtered versions of our data:
 ```{r filter_cells}
-filtered_cells=unique(c(low_NODG,high_ERCC,high_MT))
+filtered_cells=unique(c(low_NODG,high_MT))
 clean_umi_counts=umi_counts[,-filtered_cells]
 clean_norm_umi_counts=norm_umi_counts[,-filtered_cells] 
 clean_anno=anno[-filtered_cells,]
@@ -250,7 +245,6 @@ A somewhat better approach that relies on fewer assumptions about the mean-varia
 genes_keep <- select_variable_genes(clean_norm_umi_counts,0.5)
 ```
 
-
 Let's look where our selected genes fall on our mean-variance trend plot:
 ```{r mean_cv_plot3}
 col=rep("grey",length(Y1))
@@ -281,19 +275,18 @@ First let's perform PCA and look at the proportion of explained variance by the 
 ```{r PCA_no_selection}
 endog=setdiff(rownames(clean_norm_umi_counts),ERCC) #Use only endogenous genes (remove ERCCs)
 LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
-PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
-plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
+PCA_noSel=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+plot(summary(PCA_noSel)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
 Log_NODG=log2(colSums(clean_norm_umi_counts>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2])  # to ease plotting combine results in a dataframe 
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_noSel=PCA_noSel$x[,1:2])  # to ease plotting combine results in a dataframe 
 ```
 
 Now let's project...
-First using the PCA on the Log transformed data:
 ```{r PCA_no_selection_plot1}
-chart_logNODG=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=logNODG))
+chart_logNODG=ggplot(datt,aes(x=PCA_noSel.PC1,y=PCA_noSel.PC2,color=logNODG))
 chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
-chart_batch=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=Batch))
+chart_batch=ggplot(datt,aes(x=PCA_noSel.PC1,y=PCA_noSel.PC2,color=Batch))
 chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
 grid.arrange(chart_logNODG, chart_batch, ncol=1)
 ```
@@ -307,19 +300,19 @@ We will now see what is the effect on selecting overdispersed genes prior to PCA
 genes_keep <- select_variable_genes(clean_norm_umi_counts,0.25) #Select the top 25% of overdispersed genes
 endog=setdiff(rownames(clean_norm_umi_counts[genes_keep,]),ERCC) #Use only endogenous genes (remove ERCCs)
 LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
-PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
-plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2])  # to ease plotting combine results in a dataframe 
+PCA_Sel=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+plot(summary(PCA_Sel)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_Sel=PCA_Sel$x[,1:2])  # to ease plotting combine results in a dataframe 
 ```
 
 
 Let's project again...
 First using the PCA on the Log transformed data:
 ```{r PCA_selection_plot1}
-chart_logNODG=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=logNODG))
+chart_logNODG=ggplot(datt,aes(x=PCA_Sel.PC1,y=PCA_Sel.PC2,color=logNODG))
 chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
-chart_batch=ggplot(datt,aes(x=PCA_log.PC1,y=PCA_log.PC2,color=Batch))
+chart_batch=ggplot(datt,aes(x=PCA_Sel.PC1,y=PCA_Sel.PC2,color=Batch))
 chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
 grid.arrange(chart_logNODG, chart_batch, ncol=1)
 ```
@@ -334,7 +327,7 @@ While in a tSNE projection similar cells are guaranteed to end up nearby, longer
 In addition, the stochastic nature of tSNE means that every time the algorithm is applied a different projection will be produced **unlesss a random seed is set**. 
 
 ```{r tSNE_no_selection_plot}
-tSNE=Rtsne(X=PCA_log$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_log$x)))),theta=0.25,pca=F,is_distance = F)  
+tSNE=Rtsne(X=PCA_noSel$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_noSel$x)))),theta=0.25,pca=F,is_distance = F)  
 datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
 chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
 chart_tSNE1=chart_tSNE1+scale_color_gradient(low="#FF5544",high="#4455FF")
@@ -342,7 +335,17 @@ chart_tSNE1=chart_tSNE1+geom_point(size=4,alpha=0.8)
 chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
 chart_tSNE2=chart_tSNE2+geom_point(size=4,alpha=0.8)
 grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
+```
 
+```{r tSNE_selection_plot}
+tSNE=Rtsne(X=PCA_Sel$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_Sel$x)))),theta=0.25,pca=F,is_distance = F)  
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
+chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
+chart_tSNE1=chart_tSNE1+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_tSNE1=chart_tSNE1+geom_point(size=4,alpha=0.8)
+chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
+chart_tSNE2=chart_tSNE2+geom_point(size=4,alpha=0.8)
+grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ```
 
 
@@ -350,7 +353,11 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ## Identification of confounding factors and correction for unwanted sources of variance
 
 
+
+
 ## Identification of meaningful biological cell groupings (clustering) 
+
+
 
 
 ## Differential gene expression 

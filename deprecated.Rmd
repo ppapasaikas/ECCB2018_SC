@@ -1,4 +1,11 @@
 
+* Fraction of ERCC-originating reads: As mentioned above high fractions of ERCC-originating reads are also indicative of low cell quality. We already saw that 
+one batch  (NA19098.r2) appeared particurarly problematic in this respect and we shall therefore remove it.
+```{r filter_high_ERCC}
+high_ERCC=which(anno[,4]=="NA19098.r2")
+```
+
+
 We will try PCA without any filter for dispersion but feeding in two different transformations of the data; A simple log transformation of the count matrix and the cell to cell correlation matrix.
 First let's perform PCA on the two versions of the data and look at the proportion of explained variance by the first 50 components:
 
