@@ -346,11 +346,18 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ```
 
 
+
 ## Identification of confounding factors and correction for unwanted sources of variance
+
 
 ## Identification of meaningful biological cell groupings (clustering) 
 
+
 ## Differential gene expression 
+
+
+
+
 
 ```{r setup_documentation, echo=FALSE, message=FALSE, results='hide'}
 #### Copy the created html to master root as index.html
