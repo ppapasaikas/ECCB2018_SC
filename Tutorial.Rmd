@@ -110,6 +110,7 @@ When ERCC spike-ins are available we can estimate the sensitivity of the experim
 First we need a list of the features that correspond to ERCCs and their loading concentrations:
 ```{r get_ERCC_info}
 ERCC <- rownames(umi_counts)[(grepl("ERCC-", rownames(umi_counts)))]
+endog <- setdiff (rownames(umi_counts),ERCC) #Endogenous genes are the set difference between all genes and ERCCs
 #### The following chunk of code could be moved to the helper functions and be transparent
 ERCCdata <- read.table("data/ERCC_conc.txt", sep = "\t",header=TRUE)
 ERCCconc <- as.matrix(ERCCdata[,4])
@@ -170,8 +171,8 @@ mean_GE=rowMeans(norm_umi_counts+1/ncol(norm_umi_counts))
 gene_cv=apply(norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 X1=log2(mean_GE[which(rowSums(norm_umi_counts)>0)])
 Y1=log2(gene_cv[which(rowSums(norm_umi_counts)>0)]+1/ncol(norm_umi_counts)  )
-m=lm(Y1 ~ X1)
-plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" )
+m=lm(Y1[endog] ~ X1[endog])
+plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" )
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
 points(X1[ERCC],Y1[ERCC],pch=19,col="green")
@@ -216,6 +217,7 @@ clean_umi_counts=umi_counts[,-filtered_cells]
 clean_norm_umi_counts=norm_umi_counts[,-filtered_cells] 
 clean_anno=anno[-filtered_cells,]
 ```
+
 Let's check the result of our cell filtering in a plot that combines information about library size, number of detected genes and proportion of MT reads:
 ```{r filter_cells_plot}
 point.size=rep(1,ncol(umi_counts))
@@ -234,6 +236,7 @@ A first simple gene filter is to remove all genes that are not detected in ANY o
 absent_genes=which(rowSums(clean_umi_counts)==0)
 clean_umi_counts=clean_umi_counts[-absent_genes,]
 clean_norm_umi_counts=clean_norm_umi_counts[-absent_genes,] 
+endog=setdiff(endog,rownames(umi_counts)[absent_genes])
 ```
 
 A second more elaborate filter will aim to remove genes that do not present cell-to-cell fluctuations above what is expected due to technical variation. 
@@ -243,25 +246,24 @@ mean_GE=rowMeans(clean_norm_umi_counts+1/ncol(clean_norm_umi_counts))
 gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 X1=log2(mean_GE)
 Y1=log2(gene_cv+1/ncol(clean_norm_umi_counts)  )
-m=lm(Y1 ~ X1)
+m=lm(Y1[endog] ~ X1[endog])
 Yhat=predict(m)
 col=rep("black",length(Y1))
-col[which(Yhat>Y1)]="grey"
-plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch=19 ,col=col)
+col[which(Yhat>Y1[endog])]="grey"
+plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch=19 ,col=col)
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 ```
 
 A somewhat better approach that relies on fewer assumptions about the mean-variance relationship is to split the genes in bins according to their gene expression and then select the top x% overdispersed genes from every bin. This is achieved using the select_variable_genes function which can be found in the helper functions.R script:
 ```{r select_overdispersed}
-##Specify the normalized count matrix and fraction of overdispersed genes to retain:
-genes_keep <- select_variable_genes(clean_norm_umi_counts,0.5)
+genes_keep <- select_variable_genes(clean_norm_umi_counts[endog,],0.5) ##Specify the normalized count matrix and fraction of overdispersed genes to retain
 ```
 
 Let's look where our selected genes fall on our mean-variance trend plot:
 ```{r mean_cv_plot3}
-col=rep("grey",length(Y1))
+col=rep("grey",length(endog) )
 col[genes_keep]="black"
-plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
+plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 ```
 As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
@@ -285,7 +287,6 @@ We will try PCA without any filter for dispersion feeding a simple log transform
 First let's perform PCA and look at the proportion of explained variance by the first 50 components:
 
 ```{r PCA_no_selection}
-endog=setdiff(rownames(clean_norm_umi_counts),ERCC) #Use only endogenous genes (remove ERCCs)
 LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
 PCA_noSel=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
 plot(summary(PCA_noSel)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
@@ -309,9 +310,8 @@ grid.arrange(chart_logNODG, chart_batch, ncol=1)
 
 We will now see what is the effect on selecting overdispersed genes prior to PCA. Let's select the top 25% overdispersed genes and perform PCA on this subset of our dataset:
 ```{r PCA_selection}
-genes_keep <- select_variable_genes(clean_norm_umi_counts,0.25) #Select the top 25% of overdispersed genes
-endog=setdiff(rownames(clean_norm_umi_counts[genes_keep,]),ERCC) #Use only endogenous genes (remove ERCCs)
-LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
+genes_keep <- endog[select_variable_genes(clean_norm_umi_counts[endog,],0.25)] #Select the top 25% of overdispersed genes
+LogTransf_counts=log2(clean_norm_umi_counts[genes_keep ,]+1)
 PCA_Sel=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
 plot(summary(PCA_Sel)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
 datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_Sel=PCA_Sel$x[,1:2])  # to ease plotting combine results in a dataframe 
@@ -376,13 +376,13 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 
 ```{r griph, message=FALSE}
 griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plotG=FALSE,fsuffix='test')
-plotLVis(griph_res, fill.type = "true", line.type = "none")
+plotLVis(griph_res, fill.type = "true", line.type = "predicted",seed=2357)
 ```
 
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 ```{r griph_batch, message=FALSE}
 griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,1], batch.penalty=1,plotG=FALSE,fsuffix='test')
-plotLVis(griph_res_batch, fill.type = "custom", line.type = "none",seed=2357, custom.class =clean_anno[,4] )
+plotLVis(griph_res_batch, fill.type = "custom", line.type = "predicted",seed=2357, custom.class =clean_anno[,4] )
 ```
 
 ## Differential gene expression 
