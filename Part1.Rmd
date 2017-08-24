@@ -172,6 +172,7 @@ m=lm(Y1 ~ X1)
 plot(X1,Y1,xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" )
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
+points(X1[ERCC],Y1[ERCC],pch=19,col="green")
 ```
 Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (because of sampling).
 Genes that fall far above this line are  *overdispersed* and should be enriched for genes the fluctuation of which is of biological origin. 
@@ -212,6 +213,15 @@ filtered_cells=unique(c(low_NODG,high_MT))
 clean_umi_counts=umi_counts[,-filtered_cells]
 clean_norm_umi_counts=norm_umi_counts[,-filtered_cells] 
 clean_anno=anno[-filtered_cells,]
+```
+Let's check the result of our cell filtering in a plot that combines information about library size, number of detected genes and proportion of MT reads:
+```{r filter_cells_plot}
+point.size=rep(1,ncol(umi_counts))
+Log_library_size= log2(colSums(umi_counts))
+point.size=0.25 + ( Log_library_size -min( Log_library_size  ) )/  diff(range( Log_library_size ) )   #Point size proportional to library size 
+col=rep("black",ncol(umi_counts))
+col[filtered_cells]="grey"
+plot(log2(colSums(umi_counts>0)),colSums(umi_counts[mt,])/colSums(umi_counts), pch=19,cex=point.size,col=col,xlab="Log2(Number of Detected Genes)", ylab="Fraction of MT reads")
 ```
 
 
@@ -326,6 +336,7 @@ The non-linear character of tSNE means that often is will produce projections th
 While in a tSNE projection similar cells are guaranteed to end up nearby, longer distances in the projection **cannot** are not guaranteed to reflect true relationships. This means that it is risky to draw conclusions of "similarity" or "dissimilarity" from the positional relationships of different cell groupings that appear in a tSNE projection.
 In addition, the stochastic nature of tSNE means that every time the algorithm is applied a different projection will be produced **unlesss a random seed is set**. 
 
+We will first apply QC on the data before filtering for overdispersed genes using the PCA_noSel object from the previous section:
 ```{r tSNE_no_selection_plot}
 tSNE=Rtsne(X=PCA_noSel$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_noSel$x)))),theta=0.25,pca=F,is_distance = F)  
 datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
@@ -336,6 +347,8 @@ chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
 chart_tSNE2=chart_tSNE2+geom_point(size=4,alpha=0.8)
 grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ```
+
+Now we will repeat the projection using the PCA_Sel object from the previous section:
 
 ```{r tSNE_selection_plot}
 tSNE=Rtsne(X=PCA_Sel$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_Sel$x)))),theta=0.25,pca=F,is_distance = F)  
@@ -350,6 +363,8 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 
 
 
+
+
 ## Identification of confounding factors and correction for unwanted sources of variance
 
 
@@ -357,8 +372,16 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 
 ## Identification of meaningful biological cell groupings (clustering) 
 
+```{r griph, message=FALSE}
+griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plotG=FALSE,fsuffix='test')
+plotLVis(griph_res, fill.type = "true", line.type = "none")
+```
 
-
+We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
+```{r griph_batch, message=FALSE}
+griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,1], batch.penalty=1,plotG=FALSE,fsuffix='test')
+plotLVis(griph_res_batch, fill.type = "true", line.type = "none",seed=2357)
+```
 
 ## Differential gene expression 
 
