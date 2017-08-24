@@ -5,6 +5,8 @@ output:
     BiocStyle::html_document2:
         keep_md: yes
         toc_float: true
+        md_document:
+        variant: markdown_github
 author:
 - name: Atul Sethi
   email: atul.sethi@fmi.ch
@@ -380,7 +382,7 @@ plotLVis(griph_res, fill.type = "true", line.type = "none")
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 ```{r griph_batch, message=FALSE}
 griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,1], batch.penalty=1,plotG=FALSE,fsuffix='test')
-plotLVis(griph_res_batch, fill.type = "true", line.type = "none",seed=2357)
+plotLVis(griph_res_batch, fill.type = "custom", line.type = "none",seed=2357, custom.class =clean_anno[,4] )
 ```
 
 ## Differential gene expression 
@@ -392,6 +394,7 @@ plotLVis(griph_res_batch, fill.type = "true", line.type = "none",seed=2357)
 ```{r setup_documentation, echo=FALSE, message=FALSE, results='hide'}
 #### Copy the created html to master root as index.html
 #### and the md as README.md
-  file.copy("Part1.html","index.html",overwrite=TRUE)
+  file.copy("Tutorial.html","index.html",overwrite=TRUE)
+  file.copy("Tutorial.md","README.md",overwrite=TRUE)
 ```
 

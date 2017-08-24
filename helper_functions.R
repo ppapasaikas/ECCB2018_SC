@@ -2,6 +2,7 @@ require("plyr")
 require("ggplot2")
 require("Rtsne")
 require("gridExtra")
+require("griph")
 
 
 #' This is the function for selection of overdispersed genes adapted from:

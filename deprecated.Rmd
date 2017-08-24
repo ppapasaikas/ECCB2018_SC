@@ -14,13 +14,12 @@ endog=setdiff(rownames(clean_norm_umi_counts),ERCC) #Use only endogenous genes (
 LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
 PCA_log=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
 PCA_cor=prcomp(x=cor(log2(clean_norm_umi_counts[endog,]+1)),scale=T) 
-PCA_cor2=prcomp(x=cor(cor(log2(clean_norm_umi_counts[endog,]+1))),scale=F) 
 
 par(mfrow=c(1,2))
 plot(summary(PCA_log)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
-plot(summary(PCA_cor2)$importance[3,1:50],type="l",xlab="#PC (Cell2Cell cor.)",ylab="Cum. Proportion of Explained Variance")
+plot(summary(PCA_cor)$importance[3,1:50],type="l",xlab="#PC (Cell2Cell cor.)",ylab="Cum. Proportion of Explained Variance")
 Log_NODG=log2(colSums(clean_norm_umi_counts>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2],PCA_cor=PCA_cor2$x[,1:2])  # to ease plotting combine results in a dataframe 
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_log=PCA_log$x[,1:2],PCA_cor=PCA_cor$x[,1:2])  # to ease plotting combine results in a dataframe 
 ```
 
 Now let's project...
