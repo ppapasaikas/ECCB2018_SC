@@ -375,14 +375,15 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ## Identification of meaningful biological cell groupings (clustering) 
 
 ```{r griph, message=FALSE}
-griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plotG=FALSE,fsuffix='test')
-plotLVis(griph_res, fill.type = "true", line.type = "predicted",seed=2357)
+griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plotG=FALSE,rho=0.4)
+plotLVis(griph_res, fill.type = "true", line.type = "predicted", mark.type="custom", custom.class =clean_anno[,1])
 ```
 
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
+
 ```{r griph_batch, message=FALSE}
-griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,1], batch.penalty=1,plotG=FALSE,fsuffix='test')
-plotLVis(griph_res_batch, fill.type = "custom", line.type = "predicted",seed=2357, custom.class =clean_anno[,4] )
+griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]),BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,4],batch.penalty=1 ,plotG=FALSE,rho=0.4)
+plotLVis(griph_res_batch, fill.type = "true", line.type = "predicted", mark.type="custom", custom.class =clean_anno[,1] )
 ```
 
 ## Differential gene expression 
