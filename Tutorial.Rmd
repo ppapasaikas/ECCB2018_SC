@@ -34,9 +34,11 @@ molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are 
 Load the data and annotations:
 
 ```{r load_data}
-umi_counts <- read.table("data/tung/molecules.txt", sep = "\t")
-read_counts <- read.table("data/tung/reads.txt", sep = "\t")
-anno <- read.table("data/tung/annotation.txt", sep = "\t", header = TRUE)
+PATH="/home/radmin/BC2_SingleCell" #Abs Path to BC2 repo in the the ext-fmi machine
+PATH=""
+umi_counts <- read.table(paste(PATH, "data/tung/molecules.txt",sep="") , sep = "\t")
+read_counts <- read.table(paste(PATH, "data/tung/molecules.txt",sep="") , sep = "\t")
+anno <- read.table(paste(PATH, "data/tung/molecules.txt",sep="") , sep = "\t", header = TRUE)
 ```
 
 Inspect a small portion of the expression matrix:
@@ -93,7 +95,7 @@ hist(colSums(umi_counts)/1e6, xlab="Library size (millions)", main="", breaks=20
 Two indices related to library size are the number of detected genes and its converse, the number of dropout values (undetected genes):
 ```{r ndet_genes}
 par(mfrow=c(1,2))
-hist(colSums(umi_counts>0),  xlab="Library sizes", main="", breaks=20, col="grey80", ylab="Number of cells")
+hist(colSums(umi_counts>0),  xlab="Number of detected genes", main="", breaks=20, col="grey80", ylab="Number of cells")
 hist(colSums(umi_counts==0), xlab="Number of dropout values", main="", breaks=20, col="grey80", ylab="Number of cells")
 ```
 
@@ -130,7 +132,10 @@ On the other hand the per gene amplification rates can be useful in determing th
 The great advantage of sequencing platforms with UMIs is that amplification rates can be estimated and corrected for:
 
 ```{r amplif_rate}
-hist( colMeans(read_counts/(umi_counts+1) ),  xlab="Mean per gene amplification rate", main="", breaks=20, col="grey80", ylab="Number of cells")
+##hist( colMeans(read_counts/(umi_counts+1) ),  xlab="Mean per gene amplification rate", main="", breaks=20, col="grey80", ylab="Number of cells")
+NZ_endog=endog[ which(umi_counts[endog,1]>0) ] #Endogenous genes detected in the first cell
+smoothScatter( log2(read_counts[NZ_endog,1]+1), log2(umi_counts[NZ_endog,1]+1) ,xlab="Log2(read counts)", ylab="Log2(umi counts"   )
+points( log2(read_counts[ERCC,1]+1), log2(umi_counts[ERCC,1]+1) ,pch=".",col="red",cex=5   )
 ```
 
 
