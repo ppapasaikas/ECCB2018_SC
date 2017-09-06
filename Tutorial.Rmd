@@ -34,7 +34,7 @@ molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are 
 Load the data and annotations:
 
 ```{r load_data}
-PATH="/home/radmin/BC2_SingleCell" #Abs Path to BC2 repo in the the ext-fmi machine
+PATH="/home/radmin/BC2_SingleCell/" #Abs Path to BC2 repo in the the ext-fmi machine
 PATH=""
 umi_counts=readRDS(file=paste(PATH, "data/tung/umi_counts.rds",sep=""))
 read_counts=readRDS(file=paste(PATH, "data/tung/read_counts.rds",sep=""))
@@ -417,15 +417,15 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ## Identification of meaningful biological cell groupings (clustering) 
 
 ```{r griph, message=FALSE}
-griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plotG=FALSE,rho=0.4)
-plotLVis(griph_res, fill.type = "true", line.type = "predicted", mark.type="custom", custom.class =clean_anno[,1])
+griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plot=FALSE,rho=0.4)
+plotLVis(griph_res, fill.type = "true", line.type = "predicted", mark.type=clean_anno[,1])
 ```
 
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 
 ```{r griph_batch, message=FALSE}
-griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]),BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,4],batch.penalty=1 ,plotG=FALSE,rho=0.4)
-plotLVis(griph_res_batch, fill.type = "true", line.type = "predicted", mark.type="custom", custom.class =clean_anno[,1] )
+griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]),BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,4],batch.penalty=1 ,plot=FALSE,rho=0.4)
+plotLVis(griph_res_batch, fill.type = "true", line.type = "predicted", mark.type=clean_anno[,1] )
 ```
 
 ## Differential gene expression 
