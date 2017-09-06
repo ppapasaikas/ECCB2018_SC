@@ -1,5 +1,5 @@
 ---
-title: "SC_Tutorial_part1"
+title: "BC2 Single Cell Tutorial"
 date: "`r BiocStyle::doc_date()`"
 output: 
     BiocStyle::html_document2:
@@ -17,7 +17,7 @@ author:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
 # Single Cell Analysis Tutorial Part 1
