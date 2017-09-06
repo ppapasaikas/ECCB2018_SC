@@ -29,35 +29,55 @@ To illustrate the various aspects of SC analysis, we will use a
  induced pluripotent stem cells generated from three different individuals generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
 Fluidigm C1 platform and to facilitate the quantification both unique
-molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in your working directory.
+molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/BC2_SingleCell] directory .
 
 Load the data and annotations:
 
 ```{r load_data}
 PATH="/home/radmin/BC2_SingleCell" #Abs Path to BC2 repo in the the ext-fmi machine
 PATH=""
-umi_counts <- read.table(paste(PATH, "data/tung/molecules.txt",sep="") , sep = "\t")
-read_counts <- read.table(paste(PATH, "data/tung/molecules.txt",sep="") , sep = "\t")
-anno <- read.table(paste(PATH, "data/tung/molecules.txt",sep="") , sep = "\t", header = TRUE)
+umi_counts=readRDS(file=paste(PATH, "data/tung/umi_counts.rds",sep=""))
+read_counts=readRDS(file=paste(PATH, "data/tung/read_counts.rds",sep=""))
+anno <- read.table(paste(PATH, "data/tung/annotation.txt",sep="") , sep = "\t", header = TRUE) #This is cell annotation (originating individual, chip...)
 ```
 
-Inspect a small portion of the expression matrix:
+Inspect a small portion of the (umi-collapsed) expression matrix:
 
 ```{r small_output}
 head(umi_counts[ , 1:3])
 ```
 
-We will also load a few functions that will be used during the training:
-```{r source_helper_functions, message=FALSE}
-source("helper_functions.R")
+We also load some information on the ERCC loading concentration as well as gene symbol annotation for the endogenous genes (non-ERCC features) of our expression matrix:
+```{r get_gene_annot, include=FALSE}
+#library(biomaRt)
+#ENS=getBM(attributes=c('ensembl_gene_id', 'hgnc_symbol'),filters='ensembl_gene_id',values=endog,mart=useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl") )
+#rownames(ENS)=ENS[,1]
+#ENS2HGNC=data.frame(ensembl_gene_id=endog, hgnc_symbol=ENS[endog,2],row.names=endog)
+#ERCCdata <- read.table(paste(PATH, "data/ERCC_conc.txt",sep="") , sep = "\t",header=TRUE)
+#ERCCconc <- as.matrix(ERCCdata[,4])
+#dimnames(ERCCconc)=list(ERCCdata[,2],colnames(ERCCdata)[4])
 ```
 
-The most important characteristic of all SC RNAseq assays that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
+```{r get_ERCC_and_gene_annot_info}
+ERCC <- rownames(umi_counts)[(grepl("ERCC-", rownames(umi_counts)))]
+endog <- setdiff (rownames(umi_counts),ERCC) #Endogenous genes are the set difference between all genes and ERCCs
+ERCCconc=readRDS( file=paste(PATH, "data/tung/ERCCconc.rds",sep="")   ) #Loading concentrations of ERCCs
+ENS2HGNC=readRDS( file=paste(PATH, "data/tung/ENS2HGNC.rds",sep="")   ) #Gene symbol annotation for the endogenous gene features
+```
+
+
+
+Finally we will also load a few packages and functions that will be used during the training:
+```{r source_helper_functions, message=FALSE}
+source(paste(PATH, "helper_functions.R",sep=""))
+```
+
+The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
 that results in high sampling noise. This can be evidenced in the correlation of gene counts between pairs of cells:
 
 
 ```{r cell2cell}
-plot(log2(umi_counts[ , 1]+1), log2(umi_counts[ , 2]+1), pch=19, xlab="Cell1", ylab="Cell2")
+plot(log2(umi_counts[endog , 1]+1), log2(umi_counts[endog , 2]+1), pch=19, xlab="Cell1", ylab="Cell2")
 ```
 
 ## Quality control (QC) and important quantitative traits of the dataset
@@ -82,14 +102,15 @@ Capture efficiency can also vary among different cells within a single experimen
 For a given gene the probability of detection is (obviously) a function of its level of expression:
 
 ```{r detection_probability}
-smoothScatter(log2(rowSums(umi_counts)+1),rowSums(umi_counts>0)/ncol(umi_counts) ,xlab=expression(Log[2]~"Total gene count"),ylab="Detection probability"    )
+smoothScatter(log2(rowSums(umi_counts[endog,])+1),rowSums(umi_counts[endog,]>0)/ncol(umi_counts) ,xlab=expression(Log[2]~"Total gene count"),ylab="Detection probability"    )
+points(log2(rowSums(umi_counts[ERCC,])+1),rowSums(umi_counts[ERCC,]>0)/ncol(umi_counts) ,pch=19,col="red"   )
 ```
 
 ### Library size and number of detected genes.
 Library size is the number of unique transcript molecules that are detected in a cell:
 
 ```{r library_size}
-hist(colSums(umi_counts)/1e6, xlab="Library size (millions)", main="", breaks=20, col="grey80", ylab="Number of cells")
+hist(colSums(umi_counts[endog,])/1e6, xlab="Library size (millions)", main="", breaks=20, col="grey80", ylab="Number of cells")
 ```
 
 Two indices related to library size are the number of detected genes and its converse, the number of dropout values (undetected genes):
@@ -107,20 +128,36 @@ norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts),FUN="/")*1000000 #Normali
 ```
 
 
+
+### Genes accounting for the majority of reads
+Typically in any particular cell (and by extension in the whole dataset) the majority of reads originate from a very small fraction of genes. 
+For example let's look at the fraction of reads coming from just the top 25 genes in this experiment:
+
+```{r reads_per_gene}
+ReadsPerGene=sort(rowSums(umi_counts[endog,]),decreasing=TRUE) #Sort genes in decreasing order in terms of their expression
+CumulFraction=cumsum(ReadsPerGene)/sum(ReadsPerGene) #Cumulative fraction of reads
+ReadFraction=apply(umi_counts[endog,], 2, function(x) x[names(ReadsPerGene)]/sum(x)  ) #Fraction of reads coming from the genes calculated for each cell 
+
+n=25
+f=signif(CumulFraction[n]*100,digits=3)
+title=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep="")
+boxplot(ReadFraction[n:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,boxwex=0.5,
+        names=ENS2HGNC[rownames(ReadFraction)[n:1],2],col="orange",
+        main=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep=""),
+        las=2,par(cex.axis=0.6,cex.main=0.9),xlab="Fraction of Reads in Cell" )
+
+```
+Notice that the list of top genes is dominated by Mitochondrial (MT...) and robosomal-protein coding (RP...) genes. 
+Should these genes be retained in subsequent analysis steps?
+
+
+
 ### Sensitivity and accuracy
 When ERCC spike-ins are available we can estimate the sensitivity of the experiment, that is, the minimum number of molecules required for detection (an indicator of capture efficiency) as well as its accuracy (relationship estimated abundance to ground truth).
-First we need a list of the features that correspond to ERCCs and their loading concentrations:
-```{r get_ERCC_info}
-ERCC <- rownames(umi_counts)[(grepl("ERCC-", rownames(umi_counts)))]
-endog <- setdiff (rownames(umi_counts),ERCC) #Endogenous genes are the set difference between all genes and ERCCs
-#### The following chunk of code could be moved to the helper functions and be transparent
-ERCCdata <- read.table("data/ERCC_conc.txt", sep = "\t",header=TRUE)
-ERCCconc <- as.matrix(ERCCdata[,4])
-dimnames(ERCCconc)=list(ERCCdata[,2],colnames(ERCCdata)[4])
-```
+
 Now we can plot the ERCC counts in every cell as a function of the ERCCs' loading concentation:
 ```{r plot_ERCC_conc}
-smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(as.matrix(norm_umi_counts[ERCC,]+1))),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 UMI counts")
+smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(norm_umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 norm. UMI counts")
 ```
 
 Note that the sensitivity and accuracy values based on the ERCCs are only rough estimates since ERCCs have different capture efficiency and amplification biases from endgenous RNA molecules. 
@@ -134,7 +171,7 @@ The great advantage of sequencing platforms with UMIs is that amplification rate
 ```{r amplif_rate}
 ##hist( colMeans(read_counts/(umi_counts+1) ),  xlab="Mean per gene amplification rate", main="", breaks=20, col="grey80", ylab="Number of cells")
 NZ_endog=endog[ which(umi_counts[endog,1]>0) ] #Endogenous genes detected in the first cell
-smoothScatter( log2(read_counts[NZ_endog,1]+1), log2(umi_counts[NZ_endog,1]+1) ,xlab="Log2(read counts)", ylab="Log2(umi counts"   )
+smoothScatter( log2(read_counts[NZ_endog,1]+1), log2(umi_counts[NZ_endog,1]+1) ,xlab="Log2(read counts)", ylab="Log2(umi counts)"   )
 points( log2(read_counts[ERCC,1]+1), log2(umi_counts[ERCC,1]+1) ,pch=".",col="red",cex=5   )
 ```
 
@@ -154,11 +191,9 @@ Here we can observe the number of detected genes is a decreasing fraction of the
 The proportion of MT reads is another useful indicator of cell quality. High numbers of MT reads can be associated to cell damage.
 First we construct a list of the gene features of MT origin:
 ```{r get_MT_genes}
-mt <- c("ENSG00000198899", "ENSG00000198727", "ENSG00000198888",
-        "ENSG00000198886", "ENSG00000212907", "ENSG00000198786",
-        "ENSG00000198695", "ENSG00000198712", "ENSG00000198804",
-        "ENSG00000198763", "ENSG00000228253", "ENSG00000198938",
-        "ENSG00000198840")
+mt <- as.vector(ENS2HGNC[endog,1][grep("^MT-", ENS2HGNC[endog,2])])
+#rib.prot <- as.vector(ENS2HGNC[endog,1][grep("^RP", ENS2HGNC[endog,2])])
+
 ```
 
 Next we will plot the fraction of MT UMIs as a proportion of the total and color by batch:
@@ -177,10 +212,10 @@ gene_cv=apply(norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 X1=log2(mean_GE[which(rowSums(norm_umi_counts)>0)])
 Y1=log2(gene_cv[which(rowSums(norm_umi_counts)>0)]+1/ncol(norm_umi_counts)  )
 m=lm(Y1[endog] ~ X1[endog])
-plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" )
+plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch='.',cex=2,col="#00000055" )
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
-points(X1[ERCC],Y1[ERCC],pch=19,col="green")
+points(X1[ERCC],Y1[ERCC],pch=19,col="green",cex=0.5)
 ```
 Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (because of sampling).
 Genes that fall far above this line are  *overdispersed* and should be enriched for genes the fluctuation of which is of biological origin. 
@@ -273,6 +308,8 @@ abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the d
 ```
 As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
 
+Note that this gene-filtering approach did not explicitly remove any of the over-abundant mitochondrial/ribosomal proteing genes we mentioned earlier.
+In practice we suggest removing these genes during the first steps of the analysis (as they can be a source of large spurious variance between cells).
 
 
 # Single Cell Analysis Tutorial Part 2
