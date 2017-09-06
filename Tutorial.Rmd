@@ -372,11 +372,24 @@ col[genes_keep]="black"
 
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+
+###Let's also see where the ribosomal-protein and mitochondrial genes fall in this plot:
+#mt vector already contains the ids of the mitochondrial genes.
+#let's also get a list of the ribosomal-protein genes:
+rib.prot <- as.vector(ENS2HGNC[endog,1][grep("^RP", ENS2HGNC[endog,2])])
+
+points(X1[rib.prot],Y1[rib.prot],col="orange",pch=21)
+points(X1[mt],Y1[mt],col="green",pch=21)
 ```
 As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
 
-Note that this gene-filtering approach did not explicitly remove any of the over-abundant mitochondrial/ribosomal proteing genes we mentioned earlier.
-In practice we suggest removing these genes during the first steps of the analysis (as they can be a source of large spurious variance between cells).
+Note that this gene-filtering approach did not explicitly remove all the over-abundant mitochondrial/ribosomal protein genes we saw earlier.
+We suggest removing these genes during the first steps of the analysis (as they can be a source of large spurious variance between cells):
+
+```{r filter_mt_ribp}
+#Filter out the mt and ribosomal genes from the list of endogenous genes:
+endog=setdiff(endog,unique( c(mt,rib.prot) ) )
+```
 
 
 # Single Cell Analysis Tutorial Part 2
