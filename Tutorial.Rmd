@@ -98,33 +98,44 @@ These traits inlude:
 ### Transcript Capture efficiency
 Capture efficiency is the proportion of transcript molecules present in a cell that are detected in the final cell library.
 Capture efficiency varies widely among different SC RNA seq platforms and can be anywhere between x and y %.
-Capture efficiency can also vary among different cells within a single experiment (e.g because of RNA degradation, incomplete cell lysis...)
+Capture efficiency can also vary among different cells within a single experiment (e.g because of RNA degradation, incomplete cell lysis etc).
 For a given gene the probability of detection is (obviously) a function of its level of expression:
 
 ```{r detection_probability}
-smoothScatter(log2(rowSums(umi_counts[endog,])+1),rowSums(umi_counts[endog,]>0)/ncol(umi_counts) ,xlab=expression(Log[2]~"Total gene count"),ylab="Detection probability"    )
-points(log2(rowSums(umi_counts[ERCC,])+1),rowSums(umi_counts[ERCC,]>0)/ncol(umi_counts) ,pch=19,col="red"   )
+#Produce a plot of gene detection probability (fraction of cells where a gene is detected) as a function of gene expression (total gene count).
+#First we will use only the endogenous genes:
+use.data=umi_counts[endog,]
+smoothScatter(log2(rowSums(use.data)+1),rowSums(use.data>0)/ncol(use.data), xlab=expression(Log[2]~"Total gene count"),ylab="Detection probability"    )
+
+#Now we add the points corresponding to ERCCs:
+use.data=umi_counts[ERCC,]
+points(log2(rowSums(use.data)+1),rowSums(use.data>0)/ncol(umi_counts) ,pch=19,col="red"   )
 ```
 
 ### Library size and number of detected genes.
 Library size is the number of unique transcript molecules that are detected in a cell:
 
 ```{r library_size}
-hist(colSums(umi_counts[endog,])/1e6, xlab="Library size (millions)", main="", breaks=20, col="grey80", ylab="Number of cells")
+use.data=umi_counts[endog,]
+hist(colSums(use.data)/1e6, xlab="Library size (millions)", breaks=20, col="grey80", ylab="Number of cells")
 ```
 
 Two indices related to library size are the number of detected genes and its converse, the number of dropout values (undetected genes):
 ```{r ndet_genes}
 par(mfrow=c(1,2))
-hist(colSums(umi_counts>0),  xlab="Number of detected genes", main="", breaks=20, col="grey80", ylab="Number of cells")
-hist(colSums(umi_counts==0), xlab="Number of dropout values", main="", breaks=20, col="grey80", ylab="Number of cells")
+#Histogram of number of detected genes:
+hist(colSums(umi_counts>0),  xlab="Number of detected genes", breaks=20, col="grey80", ylab="Number of cells")
+
+#Histogram of number of dropout values:
+hist(colSums(umi_counts==0), xlab="Number of dropout values", breaks=20, col="grey80", ylab="Number of cells")
 ```
 
 Library size and number of detected genes depend on overall transcript capture efficiency but also on the identity and state of the individual cells.
 
 It is often convenient/useful to normalize the count table to the cells' library sizes:
 ```{r library_normalization}
-norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts),FUN="/")*1000000 #Normalize for library size and convert to CPMs
+#Normalize for library size and convert to CPMs:
+norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts),FUN="/")*1e6 
 ```
 
 
@@ -135,20 +146,26 @@ For example let's look at the fraction of reads coming from just the top 25 gene
 
 ```{r reads_per_gene}
 ReadsPerGene=sort(rowSums(umi_counts[endog,]),decreasing=TRUE) #Sort genes in decreasing order in terms of their expression
+
 CumulFraction=cumsum(ReadsPerGene)/sum(ReadsPerGene) #Cumulative fraction of reads
+
 ReadFraction=apply(umi_counts[endog,], 2, function(x) x[names(ReadsPerGene)]/sum(x)  ) #Fraction of reads coming from the genes calculated for each cell 
 
+
 n=25
-f=signif(CumulFraction[n]*100,digits=3)
+f=signif(CumulFraction[n]*100,digits=3) 
+
+#Produce a boxplot for the fraction of reads coming from the top n genes:
 title=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep="")
-boxplot(ReadFraction[n:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,boxwex=0.5,
-        names=ENS2HGNC[rownames(ReadFraction)[n:1],2],col="orange",
-        main=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep=""),
-        las=2,par(cex.axis=0.6,cex.main=0.9),xlab="Fraction of Reads in Cell" )
+boxplot(ReadFraction[n:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,
+boxwex=0.5,names=ENS2HGNC[rownames(ReadFraction)[n:1],2],col="orange",
+main=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep=""),
+las=2,par(cex.axis=0.6,cex.main=0.9),xlab="Fraction of Reads in Cell" )
 
 ```
-Notice that the list of top genes is dominated by Mitochondrial (MT...) and robosomal-protein coding (RP...) genes. 
+Notice that the list of top genes is dominated by mitochondrial (MT...) and robosomal-protein coding (RP...) genes. 
 Should these genes be retained in subsequent analysis steps?
+
 
 
 
@@ -157,6 +174,7 @@ When ERCC spike-ins are available we can estimate the sensitivity of the experim
 
 Now we can plot the ERCC counts in every cell as a function of the ERCCs' loading concentation:
 ```{r plot_ERCC_conc}
+
 smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(norm_umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 norm. UMI counts")
 ```
 
@@ -207,11 +225,24 @@ Variation in gene abundance estimates between different cells can be thought of 
 As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected just because of chance). This simple intuition is nicely captured in a plot of the gene's dispersion as a function of the mean gene expression also known as the *mean variance trend*. Here as a measure of dispersion we will use the coefficient of variation (cv=variance/mean):
 
 ```{r mean_cv_plot}
-mean_GE=rowMeans(norm_umi_counts+1/ncol(norm_umi_counts))
-gene_cv=apply(norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
-X1=log2(mean_GE[which(rowSums(norm_umi_counts)>0)])
-Y1=log2(gene_cv[which(rowSums(norm_umi_counts)>0)]+1/ncol(norm_umi_counts)  )
-m=lm(Y1[endog] ~ X1[endog])
+use.data=norm_umi_counts
+
+DetectedGenes=which(rowSums(use.data)>0) #Genes that are detected in at least one cell
+
+mean_GE=rowMeans(use.data[DetectedGenes, ] +1/ncol(use.data)) #Mean expresion (with pseudocounts)
+
+gene_cv=apply(use.data[DetectedGenes, ], 1, function(x) sd(x)/mean(x+1/length(x)) ) #coefficient of variation
+
+X1=log2(mean_GE) #Log transform expression
+
+Y1=log2(gene_cv+1/ncol(use.data)  ) #Log transform coefficient of variation
+
+rm(use.data)
+
+m=lm(Y1[endog] ~ X1[endog]) #linear fit of log(cv) as a function of log(gene expression)
+
+
+
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch='.',cex=2,col="#00000055" )
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
@@ -219,6 +250,25 @@ points(X1[ERCC],Y1[ERCC],pch=19,col="green",cex=0.5)
 ```
 Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (because of sampling).
 Genes that fall far above this line are  *overdispersed* and should be enriched for genes the fluctuation of which is of biological origin. 
+
+Notice the high variance of the ERCCs. How does the plot change if we first remove the problematic batch (NA19098.r2) identified above?
+
+```{r mean_cv_plot_rem}
+use.data=norm_umi_counts[,-c(grep("r2",colnames(umi_counts)) )] # Remove the problematic batch (NA19098.r2)
+DetectedGenes=which(rowSums(use.data)>0) #Genes that are detected in at least one cell
+mean_GE=rowMeans(use.data[DetectedGenes,  ] +1/ncol(use.data)) #Mean expresion (with pseudocounts)
+gene_cv=apply(use.data[DetectedGenes,  ],1, function(x) sd(x)/mean(x+1/length(x)) ) #coefficient of variation
+X1=log2(mean_GE) #Log transform expression
+Y1=log2(gene_cv+1/ncol(use.data)  ) #Log transform coefficient of variation
+m=lm(Y1[endog] ~ X1[endog])
+
+
+plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch='.',cex=2,col="#00000055" )
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
+points(X1[ERCC],Y1[ERCC],pch=19,col="green",cex=0.5)
+rm(use.data)
+```
 
 
 
@@ -235,8 +285,11 @@ We will remove cells according to two criteria introduced above:
 
 * Number of detected genes: In a plot of the number of the detected genes of the cells vs the corresponding rank we often observe a point of sudden drop (a shoulder). Numbers below that point might indicate damaged cells:
 ```{r filter_low_NODG}
+#Number of detected genes:
 NODG=colSums(umi_counts>0)
-plot (  rank(-NODG)  , NODG ,col=as.numeric(anno[,4]),pch=19 )
+plot (  rank(-NODG), NODG, col=as.numeric(anno[,4]), pch=19,xlab="Cell rank" )
+
+#Threshold cells with low NODG:
 abline(5500,0,col="red")
 low_NODG=which(NODG<5500)
 ```
@@ -245,10 +298,14 @@ low_NODG=which(NODG<5500)
 * Fraction of MT reads: As noted previously high fractions of MT reads might indicate damaged cells. We will look, as in the case of number of detected genes, for a point in the plot where the fraction of MT reads of the cells when sorted by their rank appear to rise sharply:
 ```{r filter_high_MT}
 fractionMTreads=colSums(umi_counts[mt,])/colSums(umi_counts)
-plot (  rank(fractionMTreads)  , fractionMTreads,col=as.numeric(anno[,4]),pch=19 )
+plot (rank(fractionMTreads), fractionMTreads, col=as.numeric(anno[,4]),pch=19,xlab="Cell rank" )
+
+#Threshold cells with high fraction of MTreads:
 abline(0.11,0,col="red")
 high_MT=which(fractionMTreads>0.11)
 ```
+
+
 
 We will now combine the three applied filters to obtain a list of all cells that will be removed and obtain filtered versions of our data:
 ```{r filter_cells}
@@ -260,11 +317,17 @@ clean_anno=anno[-filtered_cells,]
 
 Let's check the result of our cell filtering in a plot that combines information about library size, number of detected genes and proportion of MT reads:
 ```{r filter_cells_plot}
-point.size=rep(1,ncol(umi_counts))
+
 Log_library_size= log2(colSums(umi_counts))
-point.size=0.25 + ( Log_library_size -min( Log_library_size  ) )/  diff(range( Log_library_size ) )   #Point size proportional to library size 
+
+#Point size proportional to library size :
+point.size=0.25 + ( Log_library_size -min( Log_library_size  ) )/  diff(range( Log_library_size ) )   
+
+#Set a different color for the filtered cells:
 col=rep("black",ncol(umi_counts))
-col[filtered_cells]="grey"
+col[filtered_cells]="grey" 
+
+#Plot the fraction of MT reads as a function of the number of detected genes
 plot(log2(colSums(umi_counts>0)),colSums(umi_counts[mt,])/colSums(umi_counts), pch=19,cex=point.size,col=col,xlab="Log2(Number of Detected Genes)", ylab="Fraction of MT reads")
 ```
 
@@ -287,9 +350,12 @@ gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 X1=log2(mean_GE)
 Y1=log2(gene_cv+1/ncol(clean_norm_umi_counts)  )
 m=lm(Y1[endog] ~ X1[endog])
+
+##Set the color of all underdispersed points to gray:
 Yhat=predict(m)
 col=rep("black",length(Y1))
 col[which(Yhat>Y1[endog])]="grey"
+
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch=19 ,col=col)
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 ```
@@ -303,6 +369,7 @@ Let's look where our selected genes fall on our mean-variance trend plot:
 ```{r mean_cv_plot3}
 col=rep("grey",length(endog) )
 col[genes_keep]="black"
+
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
 ```
@@ -415,18 +482,38 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 
 
 ## Identification of meaningful biological cell groupings (clustering) 
+A common task in any SC experiment setting is the identification of cell groupings that encompass biological subtypes. 
 
+As we have seen in the previouse section part of the observed variation is coming from sources that are either not biological (e.g technical batch, library size) or that is biological in nature but trivial and unrelated to the question we want to analyze (cells in different cell cycle stages or apoptotic vs healthy cells are common examples).
+Therefore any clustering approach that fails to account for these unwanted sources of variance **will** produce spurious/trivial cell groupings. 
+
+* One approach to overcome this issue is to explicitly correct for (i.e regress out) unwanted variation. This only applies when the sources of variance are known/can be identified. In addition such approaches come at the risk of overcorrecting and contaminating the data. In the case of unwanted variation that is confounded with the signal of intereset these issues can become particularly problematic.
+
+* Clustering approaches that rely on cell to cell connectivity (graph based / spectral clustering approaches) tend to be robust to unwanted variance that produces continuous distortions to the signal (such as sampling variance):
+
+
+Graph based approaches model cell populations as nodes on a network and try to idenftify well connected node communites (cell groupings).
+They are also non-linear meaning that they can identify clusters that are not separable under linear data transformations. Examples of such algorithms are *SIMLR*, *PhenoClust* and the algorithm used in this tutorial *griph*. Typically these approaches perform well (better) than more classical density-based clustering approaches (e.g k-means).
+
+* Unwanted variance that produces discontinuities (think e.g of cell cycle, technical batches) can produce spurious grouping even with connectivity based apporaches. *griph* tries to overcome this issue by enforcing topological constraints. Basically, connections from cells within the same batch are penalized forcing the resulting network topology to reflect the "batch-free" structure of the data. The number of clusters does not have to be (but can be if this is desirable) specified. Instead *griph* will attempt to find the optimal graph separation.
+
+
+We will first attempt to identify clusters in the dataset without specifying any batch (a uniform penalty will be applied to all network connections):
 ```{r griph, message=FALSE}
 griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plot=FALSE,rho=0.4)
 plotLVis(griph_res, fill.type = "true", line.type = "predicted", mark.type=clean_anno[,1])
 ```
+Notice that groupings of cells coming from the same individual are the most prominent feature. However there is still structure within every individual corresponding to the chip.
 
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
-
 ```{r griph_batch, message=FALSE}
 griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]),BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,4],batch.penalty=1 ,plot=FALSE,rho=0.4)
 plotLVis(griph_res_batch, fill.type = "true", line.type = "predicted", mark.type=clean_anno[,1] )
 ```
+How has the topology been altered? 
+
+
+
 
 ## Differential gene expression 
 
