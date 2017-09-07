@@ -446,7 +446,6 @@ points(X1[mt],Y1[mt],col="green",pch=21)
 As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
 
 Note that this gene-filtering approach did not explicitly remove all the over-abundant mitochondrial/ribosomal protein genes we saw earlier.
-
 !!! _In practice we suggest removing these genes during the very first steps of the analysis (as they can be a source of large spurious variance between cells). In particular this filtering step
 should be performed **before** the filtering of underdispersed genes (mean-variance based filtering). It is only for illustration purposes that these genes were carried through up to this point in this tutorial_ !!!
 
