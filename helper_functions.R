@@ -13,7 +13,7 @@ require("griph")
 select_variable_genes<-function(m,f) {
   df <- data.frame(mean = rowMeans(m + 1/ncol(m)), cv = apply(m,1,sd) / rowMeans(m + 1/ncol(m)), var = apply(m,1,var))
   df$dispersion <- with(df, var/mean)
-  df$mean_bin <- with(df, cut(mean, breaks = c(-Inf, unique(quantile(mean, seq(0.1,1,0.01), na.rm = TRUE)), Inf)))
+  df$mean_bin <- with(df, cut(mean, breaks = c(-Inf, unique(quantile(mean, seq(0.1,1,0.02), na.rm = TRUE)), Inf)))
   var_by_bin <- data.frame(mean_bin = factor(levels(df$mean_bin), levels = levels(df$mean_bin)),
                            bin_median = as.numeric(tapply(df$dispersion, df$mean_bin, stats::median)),
                            bin_mad = as.numeric(tapply(df$dispersion, df$mean_bin, stats::mad)))[table(df$mean_bin) > 0,]

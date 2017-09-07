@@ -77,7 +77,27 @@ that results in high sampling noise. This can be evidenced in the correlation of
 
 
 ```{r cell2cell}
-plot(log2(umi_counts[endog , 1]+1), log2(umi_counts[endog , 2]+1), pch=19, xlab="Cell1", ylab="Cell2")
+#Log transform the endogenous genes count data for two cells (with similar total umi_counts)
+use.data=log2(umi_counts[endog ,c(76,669) ]+1) 
+
+#A scatterplot of the gene counts for the two cells:
+plot(use.data[,1], use.data[,2], pch='.', xlab="Cell A", ylab="Cell B",cex=3)
+
+#mark drop-outs (undetected genes)
+dropouts=which(apply(use.data,1,min)==0)
+points( use.data[ dropouts,   ], col="DimGray",pch=19 )
+
+#mark over-dispersed genes
+overdisp=which( abs(use.data[,1]-use.data[,2])>1  &  apply(use.data,1,min) > 3 )
+points( use.data[overdisp, ], col="orange",pch=19 )
+
+#mark high-magnitude outliers
+outliers=which( abs(use.data[,1]-use.data[,2])>4 )
+points( use.data[outliers, ], col="red",pch=19 )
+
+#Add a legend
+legend( "bottomright", legend=c("Dropouts (undetected genes)","Overdispersed genes", "High magnitude outliers") ,pch=19,col=c("DimGray","orange","red")  )
+
 ```
 
 ## Quality control (QC) and important quantitative traits of the dataset
@@ -116,6 +136,7 @@ points(log2(rowSums(use.data)+1),rowSums(use.data>0)/ncol(umi_counts) ,pch=19,co
 Library size is the number of unique transcript molecules that are detected in a cell:
 
 ```{r library_size}
+#Produce a histogram of the library sizes in the dataset
 use.data=umi_counts[endog,]
 hist(colSums(use.data)/1e6, xlab="Library size (millions)", breaks=20, col="grey80", ylab="Number of cells")
 ```
@@ -145,22 +166,26 @@ Typically in any particular cell (and by extension in the whole dataset) the maj
 For example let's look at the fraction of reads coming from just the top 25 genes in this experiment:
 
 ```{r reads_per_gene}
-ReadsPerGene=sort(rowSums(umi_counts[endog,]),decreasing=TRUE) #Sort genes in decreasing order in terms of their expression
+#Sort genes in decreasing order in terms of their expression
+ReadsPerGene=sort(rowSums(umi_counts[endog,]),decreasing=TRUE) 
 
-CumulFraction=cumsum(ReadsPerGene)/sum(ReadsPerGene) #Cumulative fraction of reads
+#Cumulative fraction of reads for the sorted genes:
+CumulFraction=cumsum(ReadsPerGene)/sum(ReadsPerGene) 
 
-ReadFraction=apply(umi_counts[endog,], 2, function(x) x[names(ReadsPerGene)]/sum(x)  ) #Fraction of reads coming from the genes calculated for each cell 
+#Fraction of reads coming from the top N genes calculated per cell: 
+N=25
+topN=names(ReadsPerGene)[1:N]
+ReadFraction=apply(umi_counts[endog,], 2, function(x) x[ topN ]/sum(x)  ) 
 
+#Percentage of reads coming from the top N genes:
+f=signif(CumulFraction[N]*100,digits=3) 
 
-n=25
-f=signif(CumulFraction[n]*100,digits=3) 
+#Produce a boxplot for the fraction of reads coming from the top N genes:
+title=paste("Top ", N,  " genes acccount for ", f, "% of the reads",sep="")
 
-#Produce a boxplot for the fraction of reads coming from the top n genes:
-title=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep="")
-boxplot(ReadFraction[n:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,
-boxwex=0.5,names=ENS2HGNC[rownames(ReadFraction)[n:1],2],col="orange",
-main=paste("Top ", n,  " genes acccount for ", f, "% of the reads",sep=""),
-las=2,par(cex.axis=0.6,cex.main=0.9),xlab="Fraction of Reads in Cell" )
+boxplot(ReadFraction[N:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,
+boxwex=0.5,names=rev(ENS2HGNC[topN,2]),col="orange", main=title,
+las=2,par(cex.axis=0.6,cex.main=0.9), xlab="Fraction of Reads in Cell")
 
 ```
 Notice that the list of top genes is dominated by mitochondrial (MT...) and robosomal-protein coding (RP...) genes. 
@@ -172,9 +197,9 @@ Should these genes be retained in subsequent analysis steps?
 ### Sensitivity and accuracy
 When ERCC spike-ins are available we can estimate the sensitivity of the experiment, that is, the minimum number of molecules required for detection (an indicator of capture efficiency) as well as its accuracy (relationship estimated abundance to ground truth).
 
-Now we can plot the ERCC counts in every cell as a function of the ERCCs' loading concentation:
+Now we can compare the observed ERCC counts in every cell to the ERCCs' loading concentation:
 ```{r plot_ERCC_conc}
-
+###Scatterplot or ERCC loading concentration vs their (normalized) counts in every cell :
 smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(norm_umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 norm. UMI counts")
 ```
 
@@ -187,9 +212,13 @@ On the other hand the per gene amplification rates can be useful in determing th
 The great advantage of sequencing platforms with UMIs is that amplification rates can be estimated and corrected for:
 
 ```{r amplif_rate}
-##hist( colMeans(read_counts/(umi_counts+1) ),  xlab="Mean per gene amplification rate", main="", breaks=20, col="grey80", ylab="Number of cells")
-NZ_endog=endog[ which(umi_counts[endog,1]>0) ] #Endogenous genes detected in the first cell
+#Endogenous genes detected in the first cell:
+NZ_endog=endog[ which(umi_counts[endog,1]>0) ] 
+
+#Smooth scatterplot of read counts vs umi counts per gene for the first cell:
 smoothScatter( log2(read_counts[NZ_endog,1]+1), log2(umi_counts[NZ_endog,1]+1) ,xlab="Log2(read counts)", ylab="Log2(umi counts)"   )
+
+#Add the ERCC points
 points( log2(read_counts[ERCC,1]+1), log2(umi_counts[ERCC,1]+1) ,pch=".",col="red",cex=5   )
 ```
 
@@ -209,8 +238,8 @@ Here we can observe the number of detected genes is a decreasing fraction of the
 The proportion of MT reads is another useful indicator of cell quality. High numbers of MT reads can be associated to cell damage.
 First we construct a list of the gene features of MT origin:
 ```{r get_MT_genes}
+#Grep all mitochondrial genes:
 mt <- as.vector(ENS2HGNC[endog,1][grep("^MT-", ENS2HGNC[endog,2])])
-#rib.prot <- as.vector(ENS2HGNC[endog,1][grep("^RP", ENS2HGNC[endog,2])])
 
 ```
 
@@ -227,25 +256,32 @@ As might be intuitevely obvious the effects of sampling noise on our estimates o
 ```{r mean_cv_plot}
 use.data=norm_umi_counts
 
-DetectedGenes=which(rowSums(use.data)>0) #Genes that are detected in at least one cell
+#Genes that are detected in at least one cell:
+DetectedGenes=which(rowSums(use.data)>0) 
 
-mean_GE=rowMeans(use.data[DetectedGenes, ] +1/ncol(use.data)) #Mean expresion (with pseudocounts)
+#calculate the genes' mean expresion (with pseudocounts):
+mean_GE=rowMeans(use.data[DetectedGenes, ] +1/ncol(use.data))
 
-gene_cv=apply(use.data[DetectedGenes, ], 1, function(x) sd(x)/mean(x+1/length(x)) ) #coefficient of variation
+#calculate the genes' coefficient of variation for:
+gene_cv=apply(use.data[DetectedGenes, ], 1, function(x) sd(x)/mean(x+1/length(x)) ) 
 
-X1=log2(mean_GE) #Log transform expression
+#Log transform expression and cv:
+X1=log2(mean_GE) 
+Y1=log2(gene_cv+1/ncol(use.data)  )
 
-Y1=log2(gene_cv+1/ncol(use.data)  ) #Log transform coefficient of variation
+#linear fit of log(cv) as a function of log(gene expression):
+m=lm(Y1[endog] ~ X1[endog]) 
 
-rm(use.data)
-
-m=lm(Y1[endog] ~ X1[endog]) #linear fit of log(cv) as a function of log(gene expression)
-
-
-
+#scatterplot of log(cv) as a function of log(mean expression)
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch='.',cex=2,col="#00000055" )
-abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
-abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
+
+#Add regression line
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) 
+
+# Slope in m-v trend according to poisson distribution:
+abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) 
+
+#Add the ERCC points:
 points(X1[ERCC],Y1[ERCC],pch=19,col="green",cex=0.5)
 ```
 Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (because of sampling).
@@ -287,6 +323,8 @@ We will remove cells according to two criteria introduced above:
 ```{r filter_low_NODG}
 #Number of detected genes:
 NODG=colSums(umi_counts>0)
+
+#Plot NODGs ordered by rank  (rank-size distribution)
 plot (  rank(-NODG), NODG, col=as.numeric(anno[,4]), pch=19,xlab="Cell rank" )
 
 #Threshold cells with low NODG:
@@ -297,7 +335,10 @@ low_NODG=which(NODG<5500)
 
 * Fraction of MT reads: As noted previously high fractions of MT reads might indicate damaged cells. We will look, as in the case of number of detected genes, for a point in the plot where the fraction of MT reads of the cells when sorted by their rank appear to rise sharply:
 ```{r filter_high_MT}
+#Calculate fraction of MT reads per cell:
 fractionMTreads=colSums(umi_counts[mt,])/colSums(umi_counts)
+
+#Plot fraction of MT reads ordered by rank  (rank-size distribution)
 plot (rank(fractionMTreads), fractionMTreads, col=as.numeric(anno[,4]),pch=19,xlab="Cell rank" )
 
 #Threshold cells with high fraction of MTreads:
@@ -309,7 +350,10 @@ high_MT=which(fractionMTreads>0.11)
 
 We will now combine the three applied filters to obtain a list of all cells that will be removed and obtain filtered versions of our data:
 ```{r filter_cells}
+#Merge all filtered cells:
 filtered_cells=unique(c(low_NODG,high_MT))
+
+#Remove filtered cells from the dataset:
 clean_umi_counts=umi_counts[,-filtered_cells]
 clean_norm_umi_counts=norm_umi_counts[,-filtered_cells] 
 clean_anno=anno[-filtered_cells,]
@@ -317,7 +361,7 @@ clean_anno=anno[-filtered_cells,]
 
 Let's check the result of our cell filtering in a plot that combines information about library size, number of detected genes and proportion of MT reads:
 ```{r filter_cells_plot}
-
+#Lof transformed umi counts:
 Log_library_size= log2(colSums(umi_counts))
 
 #Point size proportional to library size :
@@ -336,7 +380,10 @@ plot(log2(colSums(umi_counts>0)),colSums(umi_counts[mt,])/colSums(umi_counts), p
 The goal here is to throw out genes that offer no information as to the biological variance of the cells. We will now work on the cell-filtered version of our data.
 A first simple gene filter is to remove all genes that are not detected in ANY of the remaining cells:
 ```{r absent_genes}
+#Identify genes absent in all cels:
 absent_genes=which(rowSums(clean_umi_counts)==0)
+
+#Remove absent genes from dataset:
 clean_umi_counts=clean_umi_counts[-absent_genes,]
 clean_norm_umi_counts=clean_norm_umi_counts[-absent_genes,] 
 endog=setdiff(endog,rownames(umi_counts)[absent_genes])
@@ -345,10 +392,17 @@ endog=setdiff(endog,rownames(umi_counts)[absent_genes])
 A second more elaborate filter will aim to remove genes that do not present cell-to-cell fluctuations above what is expected due to technical variation. 
 One possible approach would be to use the mean-variance trend fit constructed above and keep only genes falling above the fitted line:
 ```{r mean_cv_plot2}
+#calculate the genes' mean expresion (with pseudocounts):
 mean_GE=rowMeans(clean_norm_umi_counts+1/ncol(clean_norm_umi_counts))
+
+#calculate the genes' coefficient of variation for:
 gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
+
+#Log transform expression and cv:
 X1=log2(mean_GE)
 Y1=log2(gene_cv+1/ncol(clean_norm_umi_counts)  )
+
+#linear fit of log(cv) as a function of log(gene expression):
 m=lm(Y1[endog] ~ X1[endog])
 
 ##Set the color of all underdispersed points to gray:
@@ -356,35 +410,46 @@ Yhat=predict(m)
 col=rep("black",length(Y1))
 col[which(Yhat>Y1[endog])]="grey"
 
+#scatterplot of log(cv) as a function of log(mean expression):
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch=19 ,col=col)
-abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+#Add Linear regression  fit on the data:
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) 
 ```
 
 A somewhat better approach that relies on fewer assumptions about the mean-variance relationship is to split the genes in bins according to their gene expression and then select the top x% overdispersed genes from every bin. This is achieved using the select_variable_genes function which can be found in the helper functions.R script:
 ```{r select_overdispersed}
-genes_keep <- select_variable_genes(clean_norm_umi_counts[endog,],0.5) ##Specify the normalized count matrix and fraction of overdispersed genes to retain
+##Specify the normalized count matrix and fraction of overdispersed genes to retain from each bin:
+genes_keep <- select_variable_genes(clean_norm_umi_counts[endog,],0.5) 
 ```
 
 Let's look where our selected genes fall on our mean-variance trend plot:
 ```{r mean_cv_plot3}
+##Set the color of all underdispersed points to gray:
 col=rep("grey",length(endog) )
 col[genes_keep]="black"
 
+#scatterplot of log(cv) as a function of log(mean expression):
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend" ,pch=19,col=col)
-abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
+
+#Add Linear regression  fit on the data:
+abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) 
 
 ###Let's also see where the ribosomal-protein and mitochondrial genes fall in this plot:
-#mt vector already contains the ids of the mitochondrial genes.
-#let's also get a list of the ribosomal-protein genes:
+#mt vector fromo before contains the ids of the mitochondrial genes.
+#Let's also get a list of the ribosomal-protein genes:
 rib.prot <- as.vector(ENS2HGNC[endog,1][grep("^RP", ENS2HGNC[endog,2])])
 
+#Add the mt and rib.prot points on the existing plot:
 points(X1[rib.prot],Y1[rib.prot],col="orange",pch=21)
 points(X1[mt],Y1[mt],col="green",pch=21)
 ```
 As you can see the effect on this particular dataset is very subtle compared to the previous approach but in different datasets the effect can be more pronounced.
 
 Note that this gene-filtering approach did not explicitly remove all the over-abundant mitochondrial/ribosomal protein genes we saw earlier.
-We suggest removing these genes during the first steps of the analysis (as they can be a source of large spurious variance between cells):
+
+!!! _In practice we suggest removing these genes during the very first steps of the analysis (as they can be a source of large spurious variance between cells). In particular this filtering step
+should be performed **before** the filtering of underdispersed genes (mean-variance based filtering). It is only for illustration purposes that these genes were carried through up to this point in this tutorial_ !!!
+
 
 ```{r filter_mt_ribp}
 #Filter out the mt and ribosomal genes from the list of endogenous genes:
@@ -396,10 +461,11 @@ endog=setdiff(endog,unique( c(mt,rib.prot) ) )
 
 
 ## Data Visualization (PCA and tSNE)
-In this section we will illustrate different ways to visualize our data using two commonly used projection techniques, namely Principal Component Analysis (PCA) and t-Distributed Stochastic Neighbor Embedding (tSNE). We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes for data visualization (and consequently cell clustering). 
+In this section we will illustrate different ways to visualize our data using two commonly used projection techniques, namely **Principal Component Analysis (PCA)** and **t-Distributed Stochastic Neighbor Embedding (tSNE)**. We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes for data visualization (and consequently cell clustering). 
 
 ### PCA
-Principal Component Analysis is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
+**Principal Component Analysis** is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
+
 A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with a number of new features that is only a small fraction of the original ones.
 
 
@@ -409,20 +475,33 @@ We will try PCA without any filter for dispersion feeding a simple log transform
 First let's perform PCA and look at the proportion of explained variance by the first 50 components:
 
 ```{r PCA_no_selection}
+#Log transform the data:
 LogTransf_counts=log2(clean_norm_umi_counts[endog,]+1)
-PCA_noSel=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+
+#Apply PCA
+#Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+PCA_noSel=prcomp(x=t(LogTransf_counts),scale=T) 
+
+#Plot  the cumuluative proportion of explained variance by the first 50 components:
 plot(summary(PCA_noSel)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
-Log_NODG=log2(colSums(clean_norm_umi_counts>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_noSel=PCA_noSel$x[,1:2])  # to ease plotting combine results in a dataframe 
+
+# Calculate also the number of detected genes (to use later in plotting)
+Log_NODG=log2(colSums(clean_norm_umi_counts>0)+1) 
+# to ease plotting combine results in a dataframe 
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_noSel=PCA_noSel$x[,1:2])  
 ```
 
-Now let's project...
+Now let's view the projection...
 ```{r PCA_no_selection_plot1}
-chart_logNODG=ggplot(datt,aes(x=PCA_noSel.PC1,y=PCA_noSel.PC2,color=logNODG))
-chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
-chart_batch=ggplot(datt,aes(x=PCA_noSel.PC1,y=PCA_noSel.PC2,color=Batch))
-chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+#Store a plot of the projection colored by NODGs:
+chart_logNODG=ggplot(datt,aes(x=PCA_noSel.PC1,y=PCA_noSel.PC2,color=logNODG))+
+scale_color_gradient(low="#FF5544",high="#4455FF") + geom_point(size=4,alpha=0.8)
+
+#Store a plot of the projection colored by batch:
+chart_batch=ggplot(datt,aes(x=PCA_noSel.PC1,y=PCA_noSel.PC2,color=Batch))+
+geom_point(size=4,alpha=0.8) 
+
+#View the two plots arranged one below the other:
 grid.arrange(chart_logNODG, chart_batch, ncol=1)
 ```
 
@@ -432,22 +511,36 @@ grid.arrange(chart_logNODG, chart_batch, ncol=1)
 
 We will now see what is the effect on selecting overdispersed genes prior to PCA. Let's select the top 25% overdispersed genes and perform PCA on this subset of our dataset:
 ```{r PCA_selection}
-genes_keep <- endog[select_variable_genes(clean_norm_umi_counts[endog,],0.25)] #Select the top 25% of overdispersed genes
+#Select the top 25% of overdispersed genes:
+genes_keep <- endog[select_variable_genes(clean_norm_umi_counts[endog,],0.25)] 
+
+#Log transform the data:
 LogTransf_counts=log2(clean_norm_umi_counts[genes_keep ,]+1)
-PCA_Sel=prcomp(x=t(LogTransf_counts),scale=T) #Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+
+#Apply PCA
+#Note that for prcomp we need to pass a trnasposed version of the matrix where cells are the rows and genes the columns
+PCA_Sel=prcomp(x=t(LogTransf_counts),scale=T) 
+
+#Plot  the cumuluative proportion of explained variance by the first 50 components:
 plot(summary(PCA_Sel)$importance[3,1:50],type="l",xlab="#PC (LogTrans. Data)",ylab="Cum. Proportion of Explained Variance")
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_Sel=PCA_Sel$x[,1:2])  # to ease plotting combine results in a dataframe 
+
+# To ease plotting combine results in a dataframe :
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],PCA_Sel=PCA_Sel$x[,1:2])  
 ```
 
 
-Let's project again...
+Let's view the projections again...
 First using the PCA on the Log transformed data:
 ```{r PCA_selection_plot1}
-chart_logNODG=ggplot(datt,aes(x=PCA_Sel.PC1,y=PCA_Sel.PC2,color=logNODG))
-chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_logNODG=chart_logNODG+geom_point(size=4,alpha=0.8)
-chart_batch=ggplot(datt,aes(x=PCA_Sel.PC1,y=PCA_Sel.PC2,color=Batch))
-chart_batch=chart_batch+geom_point(size=4,alpha=0.8)
+#Store a plot of the projection colored by NODGs:
+chart_logNODG=ggplot(datt,aes(x=PCA_Sel.PC1,y=PCA_Sel.PC2,color=logNODG))+
+scale_color_gradient(low="#FF5544",high="#4455FF")+geom_point(size=4,alpha=0.8)
+
+#Store a plot of the projection colored by batch:
+chart_batch=ggplot(datt,aes(x=PCA_Sel.PC1,y=PCA_Sel.PC2,color=Batch))+
+geom_point(size=4,alpha=0.8)
+
+#View the two plots arranged one below the other:
 grid.arrange(chart_logNODG, chart_batch, ncol=1)
 ```
 
@@ -462,28 +555,46 @@ In addition, the stochastic nature of tSNE means that every time the algorithm i
 
 We will first apply QC on the data before filtering for overdispersed genes using the PCA_noSel object from the previous section:
 ```{r tSNE_no_selection_plot}
+#Compute tSNE projection:
 tSNE=Rtsne(X=PCA_noSel$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_noSel$x)))),theta=0.25,pca=F,is_distance = F)  
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
-chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
-chart_tSNE1=chart_tSNE1+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_tSNE1=chart_tSNE1+geom_point(size=4,alpha=0.8)
-chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
-chart_tSNE2=chart_tSNE2+geom_point(size=4,alpha=0.8)
+
+#To ease plotting combine results in a dataframe:
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  
+
+#Store a plot of the projection colored by NODGs:
+chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))+
+scale_color_gradient(low="#FF5544",high="#4455FF")+geom_point(size=4,alpha=0.8)
+
+#Store a plot of the projection colored by batch:
+chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))+
+geom_point(size=4,alpha=0.8)
+
+#View the two plots arranged one below the other:
 grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ```
 
 Now we will repeat the projection using the PCA_Sel object from the previous section:
 
 ```{r tSNE_selection_plot}
+#Compute tSNE projection:
 tSNE=Rtsne(X=PCA_Sel$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA_Sel$x)))),theta=0.25,pca=F,is_distance = F)  
-datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
-chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
-chart_tSNE1=chart_tSNE1+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_tSNE1=chart_tSNE1+geom_point(size=4,alpha=0.8)
-chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
-chart_tSNE2=chart_tSNE2+geom_point(size=4,alpha=0.8)
+
+# to ease plotting combine results in a dataframe:
+datt=data.frame(logNODG=Log_NODG,Batch=clean_anno[,4],tSNE=tSNE$Y)  
+
+#Store a plot of the projection colored by NODGs:
+chart_tSNE1=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))+
+scale_color_gradient(low="#FF5544",high="#4455FF")+geom_point(size=4,alpha=0.8)
+
+#Store a plot of the projection colored by batch:
+chart_tSNE2=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))+
+geom_point(size=4,alpha=0.8)
+
+#View the two plots arranged one below the other:
 grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ```
+
+
 
 
 
@@ -725,10 +836,13 @@ grid.arrange(chart_logNODG, chart_batch, chart_cc, ncol=2, nrow=2)
 
 
 
+
+
+
 ## Identification of meaningful biological cell groupings (clustering) 
 A common task in any SC experiment setting is the identification of cell groupings that encompass biological subtypes. 
 
-As we have seen in the previouse section part of the observed variation is coming from sources that are either not biological (e.g technical batch, library size) or that is biological in nature but trivial and unrelated to the question we want to analyze (cells in different cell cycle stages or apoptotic vs healthy cells are common examples).
+As we saw in the previouse section, part of the observed variation is coming from sources that are either not biological (e.g technical batch, library size) or that is biological in nature but trivial and unrelated to the question we want to address (cells in different cell cycle stages or apoptotic vs healthy cells are common examples).
 Therefore any clustering approach that fails to account for these unwanted sources of variance **will** produce spurious/trivial cell groupings. 
 
 * One approach to overcome this issue is to explicitly correct for (i.e regress out) unwanted variation. This only applies when the sources of variance are known/can be identified. In addition such approaches come at the risk of overcorrecting and contaminating the data. In the case of unwanted variation that is confounded with the signal of intereset these issues can become particularly problematic.
@@ -744,16 +858,25 @@ They are also non-linear meaning that they can identify clusters that are not se
 
 We will first attempt to identify clusters in the dataset without specifying any batch (a uniform penalty will be applied to all network connections):
 ```{r griph, message=FALSE}
-griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],plot=FALSE,rho=0.4)
-plotLVis(griph_res, fill.type = "true", line.type = "predicted", mark.type=clean_anno[,1])
+#Run griph clustering without specifying any batch:
+griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), plot=FALSE,rho=0.4)
+
+#Plot a projection of the data using the griph distance matrix
+#Mark originating batch, originating individual and predicted cluster
+plotLVis(griph_res, fill.type = clean_anno[,4], line.type = "predicted", mark.type=clean_anno[,1])
 ```
 Notice that groupings of cells coming from the same individual are the most prominent feature. However there is still structure within every individual corresponding to the chip.
 
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 ```{r griph_batch, message=FALSE}
-griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]),BatchAssignment=clean_anno[,4], ClassAssignment=clean_anno[,4],batch.penalty=1 ,plot=FALSE,rho=0.4)
-plotLVis(griph_res_batch, fill.type = "true", line.type = "predicted", mark.type=clean_anno[,1] )
+#Run griph clustering specifying as batch the oroginating chip:
+griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), ClassAssignment=clean_anno[,4],batch.penalty=1 ,plot=FALSE,rho=0.4)
+
+#Plot a projection of the data using the griph distance matrix
+#Mark originating batch, originating individual and predicted cluster
+plotLVis(griph_res_batch, fill.type=clean_anno[,4], line.type = "predicted", mark.type=clean_anno[,1] )
 ```
+
 How has the topology been altered? 
 
 
