@@ -599,24 +599,87 @@ grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 
 
 
-## Identification of confounding factors and correction for unwanted sources of variance
+## Removing unwanted sources of variance
+
+After normalization, there could still be confounders in the data. Technical confounders (batch effects) can arise from difference in reagents, isolation methods, the lab/experimenter who performed the experiment, even which day/time the experiment was performed. Further factors like cell size, cell cycle phase , etc. can introduce unwanted variance in your data that may not be of biological interest. 
+
+Various approaches exist that can account for and, ideally, remove technical confounders. Some of these use spike-in or housekeeping genes, while others use endogenous genes. The use of spike-ins as control genes is appealing, since the same amount of ERCC (or other) spike-in was added to each cell in our experiment. In principle, all the variablity observed for spike-ins is due to technical noise; whereas endogenous genes are affected by both technical noise and biological variability. 
+
+Technical noise can be removed by fitting a model to these spike-ins and “substracting” this from the endogenous genes. Several methods (eg. **BASiCS**, **scLVM**, **RUVg**) are built on this premise; each using different noise models and different fitting procedures. 
+
+However, there are issues with the use of spike-ins for normalisation (particularly ERCCs, derived from bacterial sequences), including that their variability can, for various reasons, actually be higher than that of endogenous genes.
+
+Given the issues with using spike-ins, better results can often be obtained by using endogenous genes instead. Where we have a large number of endogenous genes that, on average, do not vary systematically between cells and where we expect technical effects to affect a large number of genes (a very common and reasonable assumption), then such methods (for example, the **RUVs** method) can perform well.
+
+
+
+We explore __RUVSeq__ that implements between-sample normalization methods to controls for 'unwanted variation', e.g., batch, library preparation, and other nuisance effects. 
+
+For $n$ samples and $J$ genes, consider the following generalized linear model (GLM), where the RNA-Seq read counts are regressed on both the known covariates of interest and unknown factors of unwanted variation:
+
+\begin{equation}\label{eq1}
+\log E[Y | W, X, O] = W \alpha + X \beta + O
+\end{equation}
+
+* $Y$ is the $n \times J$ matrix of observed gene-level read counts, 
+
+* $W$ is an $n \times k$ matrix corresponding to the factors of __unwanted variation__, and $\alpha$ its associated $k \times J$ matrix of nuisance parameters.
+
+* $X$ is an $n \times p$ matrix corresponding to the $p$ covariates of interest/factors of __wanted variation__ (e.g., treatment effect), and $\beta$ its associated $p \times J$ matrix of parameters of interest.
+
+* $O$ is an $n \times J$ matrix of offsets that can either be set to zero or estimated with some other normalization procedure (such as upper-quartile normalization).  
+
+The matrix $X$ is a random variable, assumed to be __known a priori__. For instance, in the usual two-class comparison setting (e.g., treated vs. control samples), $X$ is an $n \times 2$ design matrix with a column of ones corresponding to an intercept and a column of indicator variables for the class of each sample (e.g., 0 for control and 1 for treated). The matrix $W$ is an unobserved random variable and $\alpha$, $\beta$, and $k$ are unknown parameters. 
+<br>
+
+## Three approaches to remove unwanted variation
+The simultaneous estimation of $W$, $\alpha$, $\beta$, and $k$ is infeasible. For a given $k$, we consider instead the following three approaches to estimate the factors of unwanted variation $W$:
+<br>
+
+* __RUVg__ uses negative control genes, assumed to have constant expression across samples
+    + Identify a set of $J$c negative control genes, i.e., non-differentially expressed genes
+    + Define $Z$ = log $Y$ - $O$;  column-center $Z$
+    + Perform the singular value decomposition (SVD) of $Z$ = $U$$Λ$$V$^T^. For a given $k$, estimate $W$$\alpha$c
+    + Substitute $W$ into equation for the full set of $J$ genes and estimate both $\alpha$ and $\beta$ by GLM regression.
+    + (Optionally) Define normalized read counts as the residuals from ordinary least squares (OLS) regression of $Z$ on $W$.
+
+<br>
+
+* __RUVs__ uses centered (technical) replicate/negative control samples for which the covariates of interest are constant
+    + Assume replicate samples for which the biological covariates of interest are constant. Then, their count differences behave like those of negative control samples, as they contain no effects of interest.
+
+<br>
+
+* __RUVr__ uses residuals, e.g., from a first-pass GLM regression of the counts on the covariates of interest
+    + Compute an $n \times J$ matrix of residuals $E$ from a first-pass GLM regression of the counts $Y$ on the covariates of interest $X$ ($W$$\alpha$ = $0$). The counts may be either unnormalized or normalized with a method such as upper-quartile normalization.
+    + Perform the singular value decomposition of the residual matrix, $E$ = $U$$Λ$$V$^T^, and estimate the $n \times k$ matrix $W$ of unwanted factors. Proceed as in steps 4 and 5 of the control gene version of RUV.
+
+<br>
+
+The resulting estimate of $W$ can then be plugged into the equation , for the full set of genes and samples, and $\alpha$ and $\beta$ estimated by GLM regression. Normalized read counts can be obtained as residuals from ordinary least squares (OLS) regression of $\log Y - O$ on the estimated $W$. All three RUV versions can be readily adapted to work with any DE method formulated within a GLM framework e.g.  __edgeR__ and __DESeq2__, etc.
+
+<br>
+
 
 
 ```{r confounding_dataprep}
 # Select Cells (Remove Individual 1, Replicate 2)
-cells_remove <- unique(c(filtered_cells,grep("A.r2",colnames(umi_counts))))
+cells_remove <- grep("A.r2",colnames(clean_norm_umi_counts))
 
 # Select Genes (Remove low expressed genes)
-filter_genes <- apply(umi_counts[,-cells_remove], 1, function(x) length(x[x > 1]) >= 2)
+genes_keep <- apply(clean_norm_umi_counts[,-cells_remove], 1, function(x) length(x[x >= 5]) >= 10)
+umi.qc <- as.matrix(clean_umi_counts[genes_keep,-cells_remove])
 
-umi.qc <- as.matrix(umi_counts[filter_genes,-cells_remove])
-anno.qc <- anno[-cells_remove,]
+anno.qc <- clean_anno[-cells_remove,]
 erccs.qc <- rownames(umi.qc)[(grepl("ERCC-", rownames(umi.qc)))]
 endog.qc <- rownames(umi.qc)[(grepl("ENSG", rownames(umi.qc)))]
-umi.qc.norm <- t(t(umi.qc[endog.qc,]) /colSums(umi.qc[endog.qc,]) *1e6)
+umi.qc.norm <- t(t(umi.qc) /colSums(umi.qc) *1e6)
+
+summary(colSums(clean_norm_umi_counts[endog,]))
+summary(colSums(clean_norm_umi_counts[ERCC,]))
+summary(colSums(clean_norm_umi_counts[genes_keep,]))
 
 
-library(org.Hs.eg.db)
 gene_mapper <- mapIds(org.Hs.eg.db,  keys=rownames(umi.qc), column=c("ENTREZID"), keytype="ENSEMBL", multiVals = "asNA")
 qq <- table(gene_mapper)
 ens <- names(gene_mapper)[gene_mapper %in% names(qq[(qq==1)])]
@@ -627,22 +690,22 @@ ccpat[ccpat=="M.G1" | ccpat=="M.G1/G1.S"] <- "G1"
 ccpat[ccpat=="G1.S" | ccpat=="G1.S/S" | ccpat=="S"] <- "G1/S"
 ccpat[ccpat=="S/G2" | ccpat=="G2"] <- "S/G2"
 ccpat[ccpat=="G2/G2.M" | ccpat=="G2.M" | ccpat=="G2.M/M.G1"] <- "G2/M"
-table(ccpat)
+rm(mat1)
 
-Log_NODG=log2(colSums(umi.qc.norm>0)+1) # Calculate also the number of detected genes (to use later in plotting)
+Log_NODG=log2(colSums(umi.qc[endog.qc,]>0)+1) # Calculate also the number of detected genes (to use later in plotting)
 
-genes_keep <- endog.qc[select_variable_genes(umi.qc.norm[endog.qc,],0.25)] #Select the top 25% of overdispersed genes
+# All endogenous genes
+PCA_noSel=prcomp(x=t(log2(umi.qc.norm[endog.qc,]+1)), scale=T)
+
+# Select the top 25% of overdispersed genes
+genes_keep <- endog.qc[select_variable_genes(umi.qc.norm[endog.qc,],0.25)] 
 LogTransf_counts=log2(umi.qc.norm[genes_keep,]+1)
 PCA_Sel=prcomp(x=t(LogTransf_counts),scale=T)
-
-genes_keep <- endog.qc #All endogenous genes
-LogTransf_counts=log2(umi.qc.norm[genes_keep,]+1)
-PCA_noSel=prcomp(x=t(LogTransf_counts),scale=T) 
-
 ```
 
+
 ```{r select_PCA}
-PCA <- PCA_noSel
+PCA <- PCA_Sel
 ```
 
 ```{r confounding_pca1}
@@ -652,17 +715,13 @@ chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
 grid.arrange(chart_logNODG, ncol=1)
 ```
+
 ```{r confounding_pca2}
 chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
 chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
 grid.arrange(chart_batch, ncol=1)
+```
 
-```
-```{r confounding_pca3}
-chart_cc=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-grid.arrange(chart_cc, ncol=1)
-```
 
 ```{r confounding_tsne1}
 tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),theta=0.25,pca=F,is_distance = F)  
@@ -672,21 +731,15 @@ chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
 grid.arrange(chart_logNODG, ncol=1)
 ```
+
 ```{r confounding_tsne2}
 chart_batch=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
 chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
 grid.arrange(chart_batch, ncol=1)
-
-```
-```{r confounding_tsne3}
-chart_cc=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-grid.arrange(chart_cc, ncol=1)
 ```
 
 
 
-To estimate the factors of unwanted variation, we need a set of negative control genes, i.e., genes that can be assumed not to be influenced by the covariates of interest. In many cases, such a set can be identified, e.g., housekeeping genes or spike-in controls. Here, we use the ERCC spike-ins as controls and we consider k = 1 factors of unwanted variation. 
 
 The RUVg function returns two pieces of information: the estimated factors of unwanted variation and the normalized counts obtained by regressing the original countson the unwanted factors. These normalized counts should be used only for exploration, cell types identification, etc. 
 
@@ -695,62 +748,74 @@ It is important that any subsequent differential expression analysis be done on 
 ```{r RUVg}
 library(RUVSeq)
 # RUVg
-ruvg <- RUVg(umi.qc, erccs.qc, k = 1)
-umi.qc.ruvg1 <- ruvg$normalizedCounts
-ruvg <- RUVg(umi.qc, erccs.qc, k = 2)
-umi.qc.ruvg2 <- ruvg$normalizedCounts
-umi.qc.ruvg2_logcpm <- log2(t(t(ruvg$normalizedCounts) / colSums(ruvg$normalizedCounts) * 1e6) + 1)
+ruvg1 <- RUVg(umi.qc.norm, erccs.qc, k = 1)
+umi.qc.ruvg1 <- ruvg1$normalizedCounts
+#umi.qc.ruvg1 <- log2(t(t(ruvg1$normalizedCounts) / colSums(ruvg1$normalizedCounts) * 1e6) + 1)
+
+ruvg2 <- RUVg(umi.qc.norm, erccs.qc, k = 2)
+umi.qc.ruvg2 <- ruvg2$normalizedCounts
+#umi.qc.ruvg2 <- log2(t(t(ruvg2$normalizedCounts) / colSums(ruvg2$normalizedCounts) * 1e6) + 1)
 
 ```
 
 
 ```{r ruvg1_pca, message=FALSE}
-LogTransf_counts=log2(umi.qc.ruvg1[endog.qc,]+1)
-PCA=prcomp(x=t(LogTransf_counts),scale=F)
-Log_NODG=log2(colSums(umi.qc>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
+Log_NODG=log2(colSums(umi.qc>0)+1)
+PCA=prcomp(x=t(umi.qc.ruvg1[endog.qc,]),scale=T)
+tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),theta=0.25,pca=F,is_distance = F)  
 
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
 chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
 chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-
-chart_cc=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-
 chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
 chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
+grid.arrange(chart_logNODG)
+```
 
-grid.arrange(chart_logNODG, chart_batch, chart_cc, ncol=2, nrow=2)
+```{r ruvg1_pca1, message=FALSE}
+grid.arrange(chart_batch)
 ```
 
 
-
 ```{r ruvg2_pca, message=FALSE}
-LogTransf_counts=log2(umi.qc.ruvg2[endog.qc,]+1)
-PCA=prcomp(x=t(LogTransf_counts),scale=F)
 Log_NODG=log2(colSums(umi.qc>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
+PCA=prcomp(x=t(umi.qc.ruvg2[endog.qc,]),scale=T)
+tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),theta=0.25,pca=F,is_distance = F)  
 
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
 chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
 chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-
-chart_cc=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-
 chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
 chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
+grid.arrange(chart_logNODG)
+```
 
-grid.arrange(chart_logNODG, chart_batch, chart_cc, ncol=2, nrow=2)
+
+```{r ruvg2_pca, message=FALSE}
+grid.arrange(chart_batch)
+```
+
+
+```{r ruvg2_tsne, message=FALSE}
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe
+chart_logNODG=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
+chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
+chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
+grid.arrange(chart_logNODG)
+```
+
+```{r ruvg2_tsne2, message=FALSE}
+grid.arrange(chart_batch)
 ```
 
 
 As an alternative approach, one can use the RUVs method to estimate the factors of unwanted variation using replicate/negative control samples for which the covariates of interest are constant. First, we need to construct a matrix specifying the replicates. In our case, we can consider the three individuals with 2-3 replicates. 
 
 ```{r RUVs}
-
-#anno.qc <- anno[anno$sample_id %in% colnames(umi.qc),]
-# RUVs
 scIdx <- matrix(-1, ncol = max(table(anno.qc$individual)), nrow = 3)
 tmp <- which(anno.qc$individual == "A")
 scIdx[1, 1:length(tmp)] <- tmp
@@ -758,82 +823,47 @@ tmp <- which(anno.qc$individual == "B")
 scIdx[2, 1:length(tmp)] <- tmp
 tmp <- which(anno.qc$individual == "C")
 scIdx[3, 1:length(tmp)] <- tmp
-cIdx <- rownames(umi.qc)
+cIdx <- rownames(umi.qc[endog.qc,])
 
-# ruvs <- RUVs(umi.qc, cIdx, k = 1, scIdx = scIdx, isLog = FALSE)
-# saveRDS(ruvs,paste0(PATH,"data/ruvs1.rds"))
+umi.qc.1 <- t(t(umi.qc[endog.qc,]) / colSums(umi.qc[endog.qc,]) * 1e6)
+
+# Don't run these
+#ruvs <- RUVs(umi.qc.1, cIdx, k = 1, scIdx = scIdx, isLog = FALSE)
+#saveRDS(ruvs,paste0(PATH,"data/ruvs1.rds"))
+
 ruvs <- readRDS(paste0(PATH,"data/ruvs1.rds"))
 umi.qc.ruvs1 <- ruvs$normalizedCounts
 
-# ruvs <- RUVs(umi.qc, cIdx, k = 2, scIdx = scIdx, isLog = FALSE)
-# saveRDS(ruvs,paste0(PATH,"data/ruvs2.rds"))
+# Don't run these
+#ruvs <- RUVs(umi.qc.1, cIdx, k = 2, scIdx = scIdx, isLog = FALSE)
+#saveRDS(ruvs,paste0(PATH,"data/ruvs2.rds"))
+
 ruvs <- readRDS(paste0(PATH,"data/ruvs2.rds"))
 umi.qc.ruvs2 <- ruvs$normalizedCounts
-
-umi.qc.ruvs2_logcpm <- log2(t(t(ruvs$normalizedCounts) / colSums(ruvs$normalizedCounts) * 1e6) + 1)
 ```
 
 
 ```{r ruvs1_pca, message=FALSE}
-LogTransf_counts=log2(umi.qc.ruvs1[endog.qc,]+1)
-PCA=prcomp(x=t(LogTransf_counts),scale=F)
-Log_NODG=log2(colSums(umi.qc>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
-
-chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
-chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-
-chart_cc=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-
-chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
-chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
-
-grid.arrange(chart_logNODG, chart_batch, chart_cc, ncol=2, nrow=2)
+Log_NODG=log2(colSums(umi.qc.1>0)+1)
+PCA=prcomp(x=t(umi.qc.ruvs1),scale=T)
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])
+chart_logNODG = ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG)) + scale_color_gradient(low="#FF5544",high="#4455FF") + geom_point(size=2,alpha=0.8)
+chart_batch = ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch)) + geom_point(size=2,alpha=0.8)
+#grid.arrange(chart_logNODG)
+grid.arrange(chart_batch)
 ```
 
 ```{r ruvs2_pca, message=FALSE}
-LogTransf_counts=log2(umi.qc.ruvs2[endog.qc,]+1)
-PCA=prcomp(x=t(LogTransf_counts),scale=F)
-Log_NODG=log2(colSums(umi.qc>0)+1) # Calculate also the number of detected genes (to use later in plotting)
+PCA=prcomp(x=t(umi.qc.ruvs2),scale=T)
 datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
-
 chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
 chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
 chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-
-chart_cc=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-
 chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
 chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
-
-grid.arrange(chart_logNODG, chart_batch, chart_cc, ncol=2, nrow=2)
+#grid.arrange(chart_logNODG)
+grid.arrange(chart_batch)
 ```
-
-```{r ruvs2_logcpm_pca, message=FALSE}
-LogTransf_counts=log2(umi.qc.ruvs2_logcpm[endog.qc,]+1)
-PCA=prcomp(x=t(LogTransf_counts),scale=F)
-Log_NODG=log2(colSums(umi.qc>0)+1) # Calculate also the number of detected genes (to use later in plotting)
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a dataframe
-
-chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
-chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-
-chart_cc=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Cell_Cycle))
-chart_cc=chart_cc+geom_point(size=2,alpha=0.8)
-
-chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
-chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
-
-grid.arrange(chart_logNODG, chart_batch, chart_cc, ncol=2, nrow=2)
-```
-
-
-
-
 
 
 
@@ -883,29 +913,39 @@ How has the topology been altered?
 
 ## Differential Expression Analyses 
 
+Single cell experiments generally have a much larger number of samples (i.e. cells) for each group compared to bulk RNA-seq. This enables us to  take advantage of the whole distribution of expression values in each group to identify differences between groups rather than only comparing estimates of mean-expression as is standard for bulk RNASeq. However, when compared to bulk RNAseq profiles, single cell measurements have a high dropout rates relative to the non-zero read counts. For this type of data a variety of zero-inflated negative binomial models have been proposed (e.g. **MAST**, **SCDE**). 
+
+```{r rnbiom, message=FALSE}
+set.seed(1)
+hist(rnbinom(1000, mu=10, size=100), col="grey50", xlab="Read Counts", main="Negative Binomial")
+```
+
+```{r zirnbiom, message=FALSE}
+d = 0.5;
+counts <- rnbinom(1000, mu=10, size=100);
+counts[runif(1000) < d] = 0;
+hist(counts, col="grey50", xlab="Read Counts", main="Zero-inflated NB");
+```
+
+
 Comparison of individual B to C
 
 ```{r de_get_data, message=FALSE}
-#molecules <- read.table("data/tung/molecules.txt", sep = "\t")
-#anno <- read.table("data/tung/annotation.txt", sep = "\t", header = TRUE)
+# Cell Filter
 keep <- clean_anno[,1] == "B" | clean_anno[,1] == "C"
 data <- clean_norm_umi_counts[,keep]
 group <- clean_anno[keep,1]
 batch <- clean_anno[keep,4]
-# remove genes that aren't expressed in at least 6 cells
+
+# Gene Filter: expressed in at least 6 cells
 gkeep <- rowSums(data > 0) > 5;
 counts <- data[gkeep,]
-# Library size normalization
-#lib_size = colSums(counts)
-#norm <- t(t(counts)/lib_size*median(lib_size))
-# Variant of CPM for datasets with library sizes of fewer than 1 mil molecules
-
 ```
 
 ### MAST
 MAST is based on a zero-inflated negative binomial model. It tests for differential expression using a hurdle model to combine tests of discrete (0 vs not zero) and continuous (non-zero values) aspects of gene expression. Again this uses a linear modelling framework to enable complex models to be considered.
 
-We'll fit a hurdle model, modeling the condition and cngeneson factor, thus adjusting for the cellular detection rate. In order to have more interpretable coefficients, we'll set the reference level of the factor to be the "C" cells.
+We'll fit a hurdle model, modeling the condition and cngeneson factor (NODG), thus adjusting for the cellular detection rate. In order to have more interpretable coefficients, we'll set the reference level of the factor to be the "B" cells.
 
 ```{r MAST1, message=FALSE}
 library(MAST)
@@ -921,17 +961,16 @@ cond <- relevel(colData(obj)$cond,"B")
 colData(obj)$cond <- cond
 
 # Model expression as function of condition & number of detected genes
-# zlmCond <- zlm(~cond + cngeneson, obj)  
-# saveRDS(zlmCond,paste0(PATH,"data/zlmCond.rds")) 
+# zlmCond <- zlm(~cond + cngeneson, obj) 
+# saveRDS(zlmCond,paste0(PATH,"data/zlmCond.rds"))
 zlmCond <- readRDS(paste0(PATH,"data/zlmCond.rds"))
-
 ```
 
 We could run a likelihood ratio test here, testing for differences when we drop the condition factor. Note that any arbitrary contrast matrix can be tested here, and specified either using a matrix or syntactically.
 
 ```{r MAST2, message=FALSE}
-#summaryCond <- summary(zlmCond, doLRT="condC") 
-#saveRDS(summaryCond,paste0(PATH,"data/summaryCond.rds")) 
+#summaryCond <- summary(zlmCond, doLRT="condC")
+#saveRDS(summaryCond,paste0(PATH,"data/summaryCond.rds"))
 summaryCond <- readRDS(paste0(PATH,"data/summaryCond.rds"))
 
 summaryDt <- summaryCond$datatable
@@ -952,24 +991,29 @@ MAST uses a competitive gene set enrichment test, in which a contrast (hurdle mo
 To estimate the intergene correlation of the contrast, MAST uses bootstrapping. Cells are sampled with replacement a number of times and it refits the model. The bootstrapping can be slow (DON'T RUN THIS code snippet here), although parallelizable.
 
 ```{r MAST_GSEA_1, message=FALSE, eval=FALSE}
-# Load human GSEA hallmarks geneset Hs.H
+# Load human GSEA hallmarks geneset Hs.H in Entrez Gene IDs
 load(paste0(PATH,"data/human_H_v5p2.rdata")) # H hallmark gene sets # Hs.H
 names(Hs.H) <- gsub("HALLMARK_","",names(Hs.H))
-sets_indices <- limma::ids2indices(Hs.H, rownames(clean_norm_umi_counts))
+tmp <- select(org.Hs.eg.db, keys=unique(unlist(Hs.H)), columns=c("ENSEMBL"), keytype="ENTREZID")
+Hs.H <- lapply(Hs.H, function(x) as.character(tmp[match(x,tmp[,"ENTREZID"]),"ENSEMBL"]))
+
+sets_indices <- limma::ids2indices(Hs.H, rownames(counts))
 
 # Only keep modules with at least 5 genes
 sets_indices <- sets_indices[sapply(sets_indices, length) >= 5]
 
 # Bootstrap, resampling cells, R should be set to >50
 #### DON'T RUN THIS
-## boots <- bootVcov1(zlmCond, R=70) 
-## saveRDS(boots,paste0(PATH,"data/boots.rds")) 
+boots <- bootVcov1(zlmCond, R=70)
+saveRDS(boots,paste0(PATH,"data/boots.rds"))
 
 # Just load pre-computed data
 boots <- readRDS(paste0(PATH,"data/boots.rds"))
 
+#gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("condNA19239"))
 gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("condC")) 
 z_stat_comb <- summary(gsea, testType='normal')
+head(z_stat_comb)
 ```
 The summary method returns a data.table with columns giving discrete and continuous Z-scores (disc_Z and cont_Z) and P-values testing if the average coefficient in the gene set differs from the average coefficient outside the set. A combined P-value (using Stouffer's method) is given in column combined_P. The effect sizes (difference in average regression coefficients) is given in effect_disc and effect_cont. For the discrete component this gives, for example, the difference in the average odds of expression in the set vs outside the set.
 
@@ -985,7 +1029,6 @@ ggplot(gseaTable, aes(y=set, x=variable, fill=value))+geom_raster() + scale_fill
 SCDE is the first single-cell specific DE method. It fits a zero-inflated negative binomial model to expression data using Bayesian statistics. The usage below tests for differences in mean expression of individual genes across groups but recent versions include methods to test for differences in mean expression or dispersion of groups of genes, usually representing a pathway.
 
 ```{r SCDE, message=FALSE, eval=FALSE}
-
 ## Don't run this part
 
 library(scde)
@@ -1000,7 +1043,6 @@ resSCDE <- scde::scde.expression.difference(o.ifm, cnts, priors, groups = group,
 # Convert Z-scores into 2-tailed p-values
 pVals <- pnorm(abs(resSCDE$cZ), lower.tail = FALSE) * 2
 pVals <- p.adjust(pVals, method = "fdr")
-
 ```
 
 
