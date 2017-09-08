@@ -2,7 +2,7 @@ require("ggplot2")
 require("Rtsne")
 require("gridExtra")
 require("griph")
-
+require("org.Hs.eg.db")
 
 #' This is the function for selection of overdispersed genes adapted from:
 #' https://github.com/10XGenomics/single-cell-3prime-paper/
