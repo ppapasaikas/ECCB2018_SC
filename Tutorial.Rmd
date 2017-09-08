@@ -155,8 +155,8 @@ Library size and number of detected genes depend on overall transcript capture e
 
 It is often convenient/useful to normalize the count table to the cells' library sizes:
 ```{r library_normalization}
-#Normalize for library size and convert to CPMs:
-norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts),FUN="/")*1e6 
+#Normalize for library size (only endogenous genes) and convert to CPMs:
+norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts[endog,]),FUN="/")*1e6 
 ```
 
 
@@ -181,7 +181,7 @@ ReadFraction=apply(umi_counts[endog,], 2, function(x) x[ topN ]/sum(x)  )
 f=signif(CumulFraction[N]*100,digits=3) 
 
 #Produce a boxplot for the fraction of reads coming from the top N genes:
-title=paste("Top ", N,  " genes acccount for ", f, "% of the reads",sep="")
+title=paste("Top ", N,  " genes acccount for ", f, "% of the endogenous  reads",sep="")
 
 boxplot(ReadFraction[N:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,
 boxwex=0.5,names=rev(ENS2HGNC[topN,2]),col="orange", main=title,
@@ -200,7 +200,7 @@ When ERCC spike-ins are available we can estimate the sensitivity of the experim
 Now we can compare the observed ERCC counts in every cell to the ERCCs' loading concentation:
 ```{r plot_ERCC_conc}
 ###Scatterplot or ERCC loading concentration vs their (normalized) counts in every cell :
-smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(norm_umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 norm. UMI counts")
+smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 ERCC UMI counts")
 ```
 
 Note that the sensitivity and accuracy values based on the ERCCs are only rough estimates since ERCCs have different capture efficiency and amplification biases from endgenous RNA molecules. 
