@@ -26,7 +26,8 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 
 To illustrate the various aspects of SC analysis, we will use a 
 [dataset](http://www.biorxiv.org/content/early/2016/07/08/062919) of
- induced pluripotent stem cells generated from three different individuals generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
+ induced pluripotent stem cells generated from three different individuals  (A, B and C) with three replicates of 96 cells each (r1, r2, r3).
+The data were generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
 Fluidigm C1 platform and to facilitate the quantification both unique
 molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/BC2_SingleCell] directory .
@@ -41,10 +42,14 @@ read_counts=readRDS(file=paste(PATH, "data/tung/read_counts.rds",sep=""))
 anno=readRDS(file=paste(PATH, "data/tung/annotation.rds",sep=""))
 ```
 
-Inspect a small portion of the (umi-collapsed) expression matrix:
+Inspect a small portion of the (umi-collapsed) expression matrix as well as the design of the experiment:
 
 ```{r small_output}
+#Small portion of the expression matrix
 head(umi_counts[ , 1:3])
+
+#Summary of the experimental design (individual, replicate and batch):
+summary(anno[,c(1,2,4)])
 ```
 
 We also load some information on the ERCC loading concentration as well as gene symbol annotation for the endogenous genes (non-ERCC features) of our expression matrix:
@@ -868,6 +873,9 @@ grid.arrange(chart_batch)
 
 
 
+
+
+
 ## Identification of meaningful biological cell groupings (clustering) 
 A common task in any SC experiment setting is the identification of cell groupings that encompass biological subtypes. 
 
@@ -888,7 +896,7 @@ They are also non-linear meaning that they can identify clusters that are not se
 We will first attempt to identify clusters in the dataset without specifying any batch (a uniform penalty will be applied to all network connections):
 ```{r griph, message=FALSE}
 #Run griph clustering without specifying any batch:
-griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), plot=FALSE,rho=0.4)
+griph_res <- griph_cluster(as.matrix(clean_umi_counts[endog,]), plot=FALSE,rho=0.4, use.par = FALSE)
 
 #Plot a projection of the data using the griph distance matrix
 #Mark originating batch, originating individual and predicted cluster
@@ -899,7 +907,7 @@ Notice that groupings of cells coming from the same individual are the most prom
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 ```{r griph_batch, message=FALSE}
 #Run griph clustering specifying as batch the originating chip:
-griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), BatchAssignment=clean_anno[,4], batch.penalty=1 ,plot=FALSE,rho=0.4)
+griph_res_batch <- griph_cluster(as.matrix(clean_umi_counts[endog,]), BatchAssignment=clean_anno[,4], batch.penalty=1 ,plot=FALSE,rho=0.4, use.par = FALSE)
 
 #Plot a projection of the data using the griph distance matrix
 #Mark originating batch, originating individual and predicted cluster
@@ -990,7 +998,7 @@ MAST uses a competitive gene set enrichment test, in which a contrast (hurdle mo
 
 To estimate the intergene correlation of the contrast, MAST uses bootstrapping. Cells are sampled with replacement a number of times and it refits the model. The bootstrapping can be slow (DON'T RUN THIS code snippet here), although parallelizable.
 
-```{r MAST_GSEA_1, message=FALSE, eval=FALSE}
+```{r MAST_GSEA_1, message=FALSE, eval=TRUE}
 # Load human GSEA hallmarks geneset Hs.H in Entrez Gene IDs
 load(paste0(PATH,"data/human_H_v5p2.rdata")) # H hallmark gene sets # Hs.H
 names(Hs.H) <- gsub("HALLMARK_","",names(Hs.H))
@@ -1004,8 +1012,8 @@ sets_indices <- sets_indices[sapply(sets_indices, length) >= 5]
 
 # Bootstrap, resampling cells, R should be set to >50
 #### DON'T RUN THIS
-boots <- bootVcov1(zlmCond, R=70)
-saveRDS(boots,paste0(PATH,"data/boots.rds"))
+#boots <- bootVcov1(zlmCond, R=70)
+#saveRDS(boots,paste0(PATH,"data/boots.rds"))
 
 # Just load pre-computed data
 boots <- readRDS(paste0(PATH,"data/boots.rds"))
@@ -1056,4 +1064,12 @@ pVals <- p.adjust(pVals, method = "fdr")
   file.copy("Tutorial.html","index.html",overwrite=TRUE)
   file.copy("Tutorial.md","README.md",overwrite=TRUE)
 ```
+
+
+
+
+# Additional Resources
+
+There 
+
 
