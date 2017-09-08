@@ -793,7 +793,7 @@ grid.arrange(chart_logNODG)
 ```
 
 
-```{r ruvg2_pca, message=FALSE}
+```{r ruvg2_pca1, message=FALSE}
 grid.arrange(chart_batch)
 ```
 
