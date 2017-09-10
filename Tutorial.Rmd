@@ -1068,7 +1068,9 @@ pVals <- p.adjust(pVals, method = "fdr")
 
 
 
-# Closing remarks and additional Resources
+
+
+# Closing remarks and additional resources
 
 There are (too) many topics and issues related to SC-sequencing that go beyond the timing and scope of this tutorial and were thus left untouched. Single-cell sequencing technologies, and perhaps more-so the computational tools for the preprocessing and analysis of the resulting data are still in a state of flux. What is more important, the diversity of SC-technologies and SC-based applications has been increasing at an accelerated rate and will keep doing so for the foreseeable future.  
 
