@@ -708,36 +708,26 @@ PCA_Sel=prcomp(x=t(LogTransf_counts),scale=T)
 PCA <- PCA_Sel
 ```
 
-```{r confounding_pca1}
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,PCA=PCA$x[,1:2])  # to ease plotting combine results in a 
-chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
-chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-grid.arrange(chart_logNODG, ncol=1)
+```{r confounding_pca}
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],PCA=PCA$x[,1:2])
+#chart_logNODG=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=logNODG))
+#chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+#chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))+geom_point(size=2,alpha=0.8)
+grid.arrange(chart_batch)
 ```
 
-```{r confounding_pca2}
-chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))
-chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
+
+```{r confounding_tsne}
+tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),
+           theta=0.25,pca=F,is_distance = F)  
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],tSNE=tSNE$Y)
+#chart_logNODG=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
+#chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
+#chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
+chart_batch=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))+geom_point(size=2,alpha=0.8)
 grid.arrange(chart_batch, ncol=1)
 ```
-
-
-```{r confounding_tsne1}
-tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),theta=0.25,pca=F,is_distance = F)  
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],Cell_Cycle=ccpat,tSNE=tSNE$Y)  # to ease plotting combine results in a dataframe 
-chart_logNODG=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=logNODG))
-chart_logNODG=chart_logNODG+scale_color_gradient(low="#FF5544",high="#4455FF")
-chart_logNODG=chart_logNODG+geom_point(size=2,alpha=0.8)
-grid.arrange(chart_logNODG, ncol=1)
-```
-
-```{r confounding_tsne2}
-chart_batch=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
-chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
-grid.arrange(chart_batch, ncol=1)
-```
-
 
 
 
@@ -878,6 +868,62 @@ rm(umi.qc.ruvs)
 rm(PCA)
 rm(datt)
 ```
+
+
+### Mixed model for batch-effect correction
+
+Because RUVg function with the ERCC controls was not sufficient to remove all the unwanted technical variation, we can use a mixed model to correct for batch effects. **Humanzee** package adapted limma's algorithm for estimating variance components due to random effects. The following analysis assumes that biological replicates (or batches within an individual in our case) share similar correlation across genes. Further, the analysis permits negative correlation between replicates.
+
+#### Crossed Model
+For every single gene, we fit a mixed model assuming differences between batches are not individual-specific as follows
+
+$$ y_{ijk} = \mu + \alpha_i + b_j + \epsilon_{ijk} $$,
+
+where $y_{ijk}$ is the log2 counts-per-million (cpm) for any gene in individual $i$, batch $j$, and cell $k$, $\mu$ is the gene-specific expression level across all cells, $\alpha_i$ is the expression level specific to individual $i$, $b_j$ is batch $j$'s deviation of expression level from gene-specific expression levels, and $\epsilon_{ijk}$ is the models' residual error.
+
+We assume that $b_j$ follows a normal distribution with $b_j \sim N(0, \sigma^2_b)$ for $j = 1, \dots, 9$, and $\epsilon_{ijk} \sim N(0, \sigma^2_\epsilon)$ for $i = 1, 2, 3; j = 1, \dots, 9; and k = 1, \dots, n_{ij}$, where $n_ij$ denotes the number of cells in individual $i$, batch $j$
+
+```{r mixed_model, eval=FALSE}
+library(Humanzee)
+block <- anno.qc$batch
+design <- model.matrix(~ 1 + individual, data = anno.qc)
+umi.qc.1 <- t(t(umi.qc[endog.qc,]) / colSums(umi.qc[endog.qc,]) * 1e6)
+dup_corrs <- duplicateCorrelation(umi.qc.1, design = design, block = block)
+
+# Fit a mixed model with the batches being the random effect.
+gls_fit <- Humanzee::ruv_mixed_model(umi.qc.1, ndups = 1, design = design,
+                                     block = block, correlation = dup_corrs$cons)
+
+# Compute expression levels after removing variation due to random effects.
+umi.qc.final <- t( design %*% t(gls_fit$coef) ) + gls_fit$resid
+
+# Output the cleaned data.
+colnames(umi.qc.final) <- colnames(umi.qc.1)
+saveRDS(round(umi.qc.final, digits = 6), paste0(PATH,"data/umi_qc_mm_final.rds"))
+
+```
+
+PCA projection
+```{r mixed_model_pca, eval=TRUE}
+umi.qc.1 <- t(t(umi.qc[endog.qc,]) / colSums(umi.qc[endog.qc,]) * 1e6)
+umi_qc_mm_final <- readRDS(paste0(PATH,"data/umi_qc_mm_final.rds"))
+Log_NODG=log2(colSums(umi.qc.1>0)+1)
+PCA=prcomp(x=t(umi.qc.final),scale=T)
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4], PCA=PCA$x[,1:2])
+chart_batch=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))+geom_point(size=2,alpha=0.8)
+grid.arrange(chart_batch)
+```
+
+tSNE projection
+```{r mixed_model_tsne, eval=TRUE}
+tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),
+           theta=0.25,pca=F,is_distance = F)  
+datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],tSNE=tSNE$Y)
+chart_batch=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))
+chart_batch=chart_batch+geom_point(size=2,alpha=0.8)
+grid.arrange(chart_batch)
+```
+
 
 ## Identification of meaningful biological cell groupings (clustering) 
 A common task in any SC experiment setting is the identification of cell groupings that encompass biological subtypes. 
