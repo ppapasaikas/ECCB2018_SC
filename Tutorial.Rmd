@@ -1017,16 +1017,6 @@ resSCDE.batch <- scde.expression.difference(o.ifm, cnts, priors, groups, batch =
 
 
 
-```{r setup_documentation, echo=FALSE, message=FALSE, results='hide'}
-#### Copy the created html to master root as index.html
-#### and the md as README.md
-  file.copy("Tutorial.html","index.html",overwrite=TRUE)
-  file.copy("Tutorial.md","README.md",overwrite=TRUE)
-```
-
-
-
-
 
 
 # Closing remarks and additional resources
@@ -1101,4 +1091,10 @@ In this last section we tried to list these topics and provide links to online m
 
 
 
-
+```{r setup_documentation, echo=FALSE, message=FALSE, results='hide'}
+#### Copy the created html to master root as index.html
+#### and the md as README.md
+  Sys.sleep(3)
+  file.copy("Tutorial.html","index.html",overwrite=TRUE)
+  file.copy("Tutorial.md","README.md",overwrite=TRUE)
+```
