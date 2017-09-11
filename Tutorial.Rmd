@@ -700,7 +700,7 @@ rm(umi.qc.ruvg); rm(PCA); rm(tSNE); rm(datt)
 *RUVs* uses centered (technical) replicate/negative control samples for which the covariates of interest are constant
   + Assume replicate samples for which the biological covariates of interest are constant. Then, their count differences behave like those of negative control samples, as they contain no effects of interest.
 
-As an alternative approach, one can use the RUVs method to estimate the factors of unwanted variation using replicate/negative control samples for which the covariates of interest are constant. First, we need to construct a matrix specifying the replicates. In our case, we can consider the three individuals with 2-3 replicates. 
+First, we need to construct a matrix specifying the replicates. In our case, we can consider the three individuals with 2-3 replicates. 
 
 ```{r RUVs}
 scIdx <- matrix(-1, ncol = max(table(anno.qc$individual)), nrow = 3)
