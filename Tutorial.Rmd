@@ -652,17 +652,6 @@ umi.qc.norm <- t(t(umi.qc) /colSums(umi.qc) *1e6)
 Log_NODG <- log2(colSums(umi.qc[endog.qc,]>0)+1) 
 ```
 
-Without removing any factors of variation
-```{r noruv_pca}
-PCA=prcomp(x=t(log2(umi.qc.norm[endog.qc,]+1)), scale=T)
-tSNE=Rtsne(X=PCA$x[,1:50],dim=2,perplexity=min(50,round(sqrt(nrow(PCA$x)))),
-           theta=0.25,pca=F,is_distance = F)  
-datt=data.frame(logNODG=Log_NODG,Batch=anno.qc[,4],PCA=PCA$x[,1:2],tSNE=tSNE$Y)
-chart_batch_pca=ggplot(datt,aes(x=PCA.PC1,y=PCA.PC2,color=Batch))+geom_point(size=2,alpha=0.8)
-chart_batch_tsne=ggplot(datt,aes(x=tSNE.1,y=tSNE.2,color=Batch))+geom_point(size=2,alpha=0.8)
-grid.arrange(chart_batch_pca, chart_batch_tsne)
-```
-
 ### RUVg
 *RUVg* uses negative control genes, assumed to have constant expression across samples
   + However, there are issues with the use of spike-ins for normalisation (particularly ERCCs, derived from bacterial sequences), including that their variability can, for various reasons, actually be higher than that of endogenous genes.
@@ -871,7 +860,8 @@ How has the topology been altered?
 
 ## Differential Expression Analyses 
 
-Single cell experiments generally have a much larger number of samples (i.e. cells) for each group compared to bulk RNA-seq. This enables us to  take advantage of the whole distribution of expression values in each group to identify differences between groups rather than only comparing estimates of mean-expression as is standard for bulk RNASeq. However, when compared to bulk RNAseq profiles, single cell measurements have a high dropout rates relative to the non-zero read counts. For this type of data a variety of zero-inflated negative binomial models have been proposed (e.g. [*MAST*](https://bioconductor.org/packages/release/bioc/html/MAST.html), [*SCDE*](http://bioconductor.org/packages/release/bioc/html/scde.html)). 
+* Single cell experiments generally have a much larger number of samples (i.e. cells) for each group compared to bulk RNA-seq. This enables us to  take advantage of the whole distribution of expression values in each group to identify differences between groups rather than only comparing estimates of mean-expression as is standard for bulk RNASeq.
+* However, when compared to bulk RNAseq profiles, single cell measurements have a high dropout rates relative to the non-zero read counts.
 
 ```{r rnbiom, message=FALSE}
 set.seed(1)
@@ -885,7 +875,9 @@ counts[runif(1000) < d] = 0;
 hist(counts, col="grey50", xlab="Read Counts", main="Zero-inflated NB");
 ```
 
-Comparison of individual B to C
+* For this type of data a variety of zero-inflated negative binomial models have been proposed (e.g. [*MAST*](https://bioconductor.org/packages/release/bioc/html/MAST.html), [*SCDE*](http://bioconductor.org/packages/release/bioc/html/scde.html)). 
+
+Here we perform differentail expression between individual B and C
 
 ```{r de_get_data, message=FALSE}
 # Cell Filter
@@ -902,6 +894,8 @@ counts <- clean_norm_umi_counts[gkeep,keep]
 MAST is based on a zero-inflated negative binomial model. It tests for differential expression using a hurdle model to combine tests of discrete (0 vs not zero) and continuous (non-zero values) aspects of gene expression. Again this uses a linear modelling framework to enable complex models to be considered.
 
 We'll fit a hurdle model, modeling the condition and cngeneson factor (NODG), thus adjusting for the cellular detection rate. In order to have more interpretable coefficients, we'll set the reference level of the factor to be the "B" cells.
+
+Since the processing time of these steps can take minutes to hours depending on the number of cells, we will use some precomputed data in the following analyses.
 
 ```{r MAST1, message=FALSE}
 library(MAST)
@@ -936,16 +930,16 @@ fcHurdle <- merge(summaryDt[contrast=='condC' & component=='H',.(primerid, `Pr(>
                   by='primerid')
 fcHurdle[,fdr:=p.adjust(`Pr(>Chisq)`, 'fdr')]
 
-fcHurdleSig <- fcHurdle[fdr<.05 & abs(coef)>log2(1.5)]
+fcHurdleSig <- fcHurdle[fdr<.05 & abs(coef)>log2(2)]
+dim(fcHurdleSig)
 data.table::setorder(fcHurdleSig, fdr)
 head(fcHurdleSig)
 ```
 
-
 #### Gene Set Enrichment Analysis
 MAST uses a competitive gene set enrichment test, in which a contrast (hurdle model coefficient) from various gene sets of interest is compared to the background, accounting for the intergene correlation of the module coefficient.
 
-To estimate the intergene correlation of the contrast, MAST uses bootstrapping. Cells are sampled with replacement a number of times and it refits the model. The bootstrapping can be slow (DON'T RUN THIS code snippet here), although parallelizable.
+To estimate the intergene correlation of the contrast, MAST uses bootstrapping. Cells are sampled with replacement a number of times and it refits the model. The bootstrapping can be slow (DON'T RUN the following code).
 
 ```{r MAST_GSEA_1, message=FALSE, eval=TRUE}
 load(paste0(PATH,"data/human_H_v5p2.rdata")) # H hallmark gene sets (Hs.H)
@@ -958,17 +952,17 @@ sets_indices <- limma::ids2indices(Hs.H, rownames(counts))
 # Only keep modules with at least 5 genes
 sets_indices <- sets_indices[sapply(sets_indices, length) >= 5]
 
-# **************** DON'T RUN THIS: processing time (>5 hrs) 
+# **************** DON'T RUN THIS: processing time (5+ hrs) 
+# **************** Load pre-computed data
 # Bootstrap, resampling cells, R should be set to >50
 # boots <- bootVcov1(zlmCond, R=70)
 # saveRDS(boots,paste0(PATH,"data/boots.rds"))
-# Just load pre-computed data
 boots <- readRDS(paste0(PATH,"data/boots.rds"))
 
 # **************** DON'T RUN THIS
+# **************** Load pre-computed data
 # gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("condC")) 
 # saveRDS(gsea,paste0(PATH,"data/gsea.rds"))
-# Load pre-computed data instead
 gsea <- readRDS(paste0(PATH,"data/gsea.rds"))
 
 z_stat_comb <- summary(gsea, testType='normal')
@@ -987,24 +981,39 @@ ggplot(gseaTable, aes(y=set, x=variable, fill=value))+geom_raster() + scale_fill
 SCDE is the first single-cell specific DE method. It fits a zero-inflated negative binomial model to expression data using Bayesian statistics. The usage below tests for differences in mean expression of individual genes across groups but recent versions include methods to test for differences in mean expression or dispersion of groups of genes, usually representing a pathway.
 
 ```{r SCDE, message=FALSE, eval=FALSE}
-## Don't run this part
-
+# **************** DON'T RUN THIS: processing time (>10 hrs) 
 library(scde)
 cnts <- apply(counts, 2, function(x) { storage.mode(x) <- 'integer'; return(x) } )
 names(group) <- 1:length(group)
 colnames(cnts) <- 1:length(group)
+
+# Fitting error models
 o.ifm <- scde::scde.error.models(counts = cnts, groups = group, n.cores = 1, threshold.segmentation = TRUE, 
                                  save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 0, min.size.entries = 2)
+
+# Remove particularly poor cells
+valid.cells <- o.ifm$corr.a > 0
+o.ifm <- o.ifm[valid.cells, ]
+
+# Define an expression magnitude prior for the genes
 priors <- scde::scde.expression.prior(models = o.ifm, counts = cnts, length.out = 400, show.plot = FALSE )
+
+# Testing for differential expression
 resSCDE <- scde::scde.expression.difference(o.ifm, cnts, priors, groups = group, n.randomizations = 100,
                                             n.cores = 1, verbose = 0)
+
+# Top upregulated genes (tail would show top downregulated ones)
+head(resSCDE[order(resSCDE$Z, decreasing  =  TRUE), ])
+
 # Convert Z-scores into 2-tailed p-values
 pVals <- pnorm(abs(resSCDE$cZ), lower.tail = FALSE) * 2
 pVals <- p.adjust(pVals, method = "fdr")
+
+# Correcting for batch effects
+resSCDE.batch <- scde.expression.difference(o.ifm, cnts, priors, groups, batch = batch, 
+                                            n.randomizations = 100, n.cores = 1, return.posteriors = TRUE, verbose = 1)
+
 ```
-
-
-
 
 
 
