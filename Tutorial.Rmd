@@ -25,8 +25,9 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ## Example Dataset 
 
 To illustrate the various aspects of SC analysis, we will use a 
-[dataset](http://www.biorxiv.org/content/early/2016/07/08/062919) of
- induced pluripotent stem cells generated from three different individuals generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
+[dataset](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/) of
+ induced pluripotent stem cells generated from three different individuals  (A, B and C) with three replicates of 96 cells each (A.r1, A.r2, A.r3, ...).
+The data were generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
 Fluidigm C1 platform and to facilitate the quantification both unique
 molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/BC2_SingleCell] directory .
@@ -41,10 +42,14 @@ read_counts=readRDS(file=paste(PATH, "data/tung/read_counts.rds",sep=""))
 anno=readRDS(file=paste(PATH, "data/tung/annotation.rds",sep=""))
 ```
 
-Inspect a small portion of the (umi-collapsed) expression matrix:
+Inspect a small portion of the (umi-collapsed) expression matrix as well as the design of the experiment:
 
 ```{r small_output}
+#Small portion of the expression matrix
 head(umi_counts[ , 1:3])
+
+#Summary of the experimental design (individual, replicate and batch):
+summary(anno[,c(1,2,4)])
 ```
 
 We also load some information on the ERCC loading concentration as well as gene symbol annotation for the endogenous genes (non-ERCC features) of our expression matrix:
@@ -73,7 +78,7 @@ source(paste(PATH, "helper_functions.R",sep=""))
 ```
 
 The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
-that results in high sampling noise. This can be evidenced in the correlation of gene counts between pairs of cells:
+that results in high sampling noise. Several of the "effects" of this property can be evidenced in a scatterplot of (umi-collapsed) gene counts between pairs of cells:
 
 
 ```{r cell2cell}
@@ -155,8 +160,8 @@ Library size and number of detected genes depend on overall transcript capture e
 
 It is often convenient/useful to normalize the count table to the cells' library sizes:
 ```{r library_normalization}
-#Normalize for library size and convert to CPMs:
-norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts),FUN="/")*1e6 
+#Normalize for library size (only endogenous genes) and convert to CPMs:
+norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts[endog,]),FUN="/")*1e6 
 ```
 
 
@@ -181,7 +186,7 @@ ReadFraction=apply(umi_counts[endog,], 2, function(x) x[ topN ]/sum(x)  )
 f=signif(CumulFraction[N]*100,digits=3) 
 
 #Produce a boxplot for the fraction of reads coming from the top N genes:
-title=paste("Top ", N,  " genes acccount for ", f, "% of the reads",sep="")
+title=paste("Top ", N,  " genes acccount for ", f, "% of the endogenous  reads",sep="")
 
 boxplot(ReadFraction[N:1,],use.cols=FALSE,horizontal=TRUE,outline=FALSE,
 boxwex=0.5,names=rev(ENS2HGNC[topN,2]),col="orange", main=title,
@@ -200,7 +205,7 @@ When ERCC spike-ins are available we can estimate the sensitivity of the experim
 Now we can compare the observed ERCC counts in every cell to the ERCCs' loading concentation:
 ```{r plot_ERCC_conc}
 ###Scatterplot or ERCC loading concentration vs their (normalized) counts in every cell :
-smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(norm_umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 norm. UMI counts")
+smoothScatter( rep(log2(ERCCconc[ERCC,1]),ncol(umi_counts) ) ,log2(as.vector(umi_counts[ERCC,]+1)),  xlab="Log2 ERCC concentration (attomoles/ul)",ylab="Log2 ERCC UMI counts")
 ```
 
 Note that the sensitivity and accuracy values based on the ERCCs are only rough estimates since ERCCs have different capture efficiency and amplification biases from endgenous RNA molecules. 
@@ -785,6 +790,7 @@ rm(PCA); rm(tSNE); rm(datt)
 ```
 
 
+
 ### Mixed model for batch-effect correction
 
 Because RUVg function with the ERCC controls was not sufficient to remove all the unwanted technical variation, we can use a mixed model to correct for batch effects. **Humanzee** package adapted limma's algorithm for estimating variance components due to random effects. The following analysis assumes that biological replicates (or batches within an individual in our case) share similar correlation across genes. Further, the analysis permits negative correlation between replicates.
@@ -837,6 +843,8 @@ rm(umi_qc_mm_final); rm(umi.qc.1)
 rm(PCA); rm(tSNE); rm(datt); rm(gls_fit)
 ```
 
+
+
 ## Identification of meaningful biological cell groupings (clustering) 
 A common task in any SC experiment setting is the identification of cell groupings that encompass biological subtypes. 
 
@@ -849,15 +857,15 @@ Therefore any clustering approach that fails to account for these unwanted sourc
 
 
 Graph based approaches model cell populations as nodes on a network and try to idenftify well connected node communites (cell groupings).
-They are also non-linear meaning that they can identify clusters that are not separable under linear data transformations. Examples of such algorithms are *SIMLR*, *PhenoClust* and the algorithm used in this tutorial *griph*. Typically these approaches perform well (better) than more classical "compactness-based"" clustering approaches (e.g k-means).
+They are also non-linear meaning that they can identify clusters that are not separable under linear data transformations. Examples of such algorithms are [*SIMLR*](https://github.com/BatzoglouLabSU/SIMLR),   [*PhenoClust*](https://www.c2b2.columbia.edu/danapeerlab/html/phenograph.html) and the algorithm used in this tutorial [*griph*](https://github.com/ppapasaikas/griph). Typically these approaches perform well (better) than more classical "compactness-based"" clustering approaches (e.g k-means).
 
-* Unwanted variance that produces discontinuities (think e.g of cell cycle, technical batches) can produce spurious grouping even with connectivity based apporaches. *griph* tries to overcome this issue by enforcing topological constraints. Basically, connections from cells within the same batch are penalized forcing the resulting network topology to reflect the "batch-free" structure of the data. The number of clusters does not have to be (but can be if this is desirable) specified. Instead *griph* will attempt to find the optimal graph separation.
+* Unwanted variance that produces discontinuities (think e.g of cell cycle, technical batches) can produce spurious groupings even with connectivity based apporaches. *griph* tries to overcome this issue by enforcing topological constraints. Basically, connections from cells within the same batch are penalized forcing the resulting network topology to reflect the "batch-free" structure of the data. The number of clusters does not have to be (but can be if this is desirable) specified. Instead *griph* will attempt to find the optimal graph separation.
 
 
 We will first attempt to identify clusters in the dataset without specifying any batch (a uniform penalty will be applied to all network connections):
 ```{r griph, message=FALSE}
 #Run griph clustering without specifying any batch:
-griph_res <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), plot=FALSE,rho=0.4)
+griph_res <- griph_cluster(as.matrix(clean_umi_counts[endog,]), plot=FALSE,rho=0.4, use.par = FALSE)
 
 #Plot a projection of the data using the griph distance matrix
 #Mark originating batch, originating individual and predicted cluster
@@ -868,7 +876,7 @@ Notice that groupings of cells coming from the same individual are the most prom
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 ```{r griph_batch, message=FALSE}
 #Run griph clustering specifying as batch the originating chip:
-griph_res_batch <- griph_cluster(as.matrix(clean_norm_umi_counts[endog,]), BatchAssignment=clean_anno[,4], batch.penalty=1 ,plot=FALSE,rho=0.4)
+griph_res_batch <- griph_cluster(as.matrix(clean_umi_counts[endog,]), BatchAssignment=clean_anno[,4], batch.penalty=1 ,plot=FALSE,rho=0.4, use.par = FALSE)
 
 #Plot a projection of the data using the griph distance matrix
 #Mark originating batch, originating individual and predicted cluster
@@ -895,7 +903,6 @@ counts <- rnbinom(1000, mu=10, size=100);
 counts[runif(1000) < d] = 0;
 hist(counts, col="grey50", xlab="Read Counts", main="Zero-inflated NB");
 ```
-
 
 Comparison of individual B to C
 
@@ -974,7 +981,7 @@ sets_indices <- sets_indices[sapply(sets_indices, length) >= 5]
 # Bootstrap, resampling cells, R should be set to >50
 # boots <- bootVcov1(zlmCond, R=70)
 # saveRDS(boots,paste0(PATH,"data/boots.rds"))
-# Load pre-computed data instead
+# Just load pre-computed data
 boots <- readRDS(paste0(PATH,"data/boots.rds"))
 
 # **************** DON'T RUN THIS
@@ -1026,4 +1033,72 @@ pVals <- p.adjust(pVals, method = "fdr")
   file.copy("Tutorial.html","index.html",overwrite=TRUE)
   file.copy("Tutorial.md","README.md",overwrite=TRUE)
 ```
+
+
+
+
+
+
+# Closing remarks and additional resources
+
+There are (too) many topics and issues related to SC-sequencing that go beyond the timing and scope of this tutorial and were thus left untouched. Single-cell sequencing technologies, and perhaps more-so the computational tools for the preprocessing and analysis of the resulting data are still in a state of flux. What is more important, the diversity of SC-technologies and SC-based applications has been increasing at an accelerated rate and will keep doing so for the foreseeable future.  
+
+In our view, any course aiming to cover the expansive landscape of SC-sequencing technologies, computational tools and applications would inevitably fall short of its mark (all the more so in the context of a 1-day tutorial!). Instead we aimed to convey some of the data characteristics, computational challenges and principles that are commonplace/generalize well to many SC-sequencing applications. 
+
+There are, however, a number of topics that we feel can be of general interest which we could not fit in the context of this tutorial and should not be left unmentioned. 
+In this last section we will try to list these topics and provide links to online material for those wishing to dig into them:
+
+
+* A very comprehensive page with links to a large number of available software, tutorials, apps and papers:
+  + <https://github.com/seandavi/awesome-single-cell>
+
+* Experimental design, batch effects, comparison of protocols and analysis workflows:
+  + <http://www.cell.com/cell/abstract/S0092-8674(15)01353-7>
+  + <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y>
+  + <http://www.nature.com/nmeth/journal/v14/n4/abs/nmeth.4220.html>
+  + <http://www.nature.com/nbt/journal/v34/n11/full/nbt.3721.html>
+  + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/>
+
+
+* Data structures for SC data (and how to deal with storage/memory needs efficiently):
+  + <http://peterhickey.org/2017-08-01_Peter_Hickey_JSM.pdf>
+  + <https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/advanced/h5_matrices>
+  + <http://bioconductor.org/packages/release/bioc/html/HDF5Array.html>
+  + <https://bioconductor.org/packages/release/bioc/html/DelayedArray.html>
+
+
+* Inference of hierarchical structure/lineage from SC data:
+  + <http://www.nature.com/nbt/journal/v35/n6/full/nbt.3854.html>
+  + <https://www.nature.com/nmeth/journal/vaop/ncurrent/full/nmeth.4402.html>
+  + <http://www.nature.com/nrg/journal/v18/n4/full/nrg.2016.159.html>
+  + <https://www.nature.com/ni/journal/v17/n3/full/ni.3344.html>
+  + <http://www.biorxiv.org/content/early/2017/04/19/128843>
+  + <https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-016-1175-6>
+  + <http://www.nature.com/nmeth/journal/v13/n10/full/nmeth.3971.html?WT.feed_name=subjects_rna-sequencing>
+
+
+* SC medical advances / applications (really too long a list to cover, only some examples):
+  + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4441954/>
+  + <http://www.sciencedirect.com/science/article/pii/S073497501730040X>
+  + <http://genome.cshlp.org/content/25/10/1499.full>
+  + <http://www.nature.com/nri/journal/vaop/ncurrent/abs/nri.2017.76.html>
+  + <http://www.nature.com/nrg/journal/v17/n8/abs/nrg.2016.67.html>
+  + <https://www.illumina.com/content/dam/illumina-marketing/documents/products/research_reviews/single-cell-sequencing-research-review.pdf>
+
+
+* Single-cell-based pooled screenings:
+  + <http://www.sciencedirect.com/science/article/pii/S0092867416316105>
+  + <http://www.sciencedirect.com/science/article/pii/S0092867416316609>
+  + <http://www.sciencedirect.com/science/article/pii/S0092867416316117>
+
+
+* Single-cell epigenomics:
+  + <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0944-x>
+  + <http://www.nature.com/nrg/journal/v16/n12/full/nrg3980.html?foxtrotcallback=true>
+  + <http://databio.org/single_cell_epigenomics.html>
+
+
+
+
+
 
