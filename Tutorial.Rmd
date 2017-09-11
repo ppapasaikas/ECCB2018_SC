@@ -1042,11 +1042,20 @@ In this last section we will try to list these topics and provide links to onlin
 * A very comprehensive page with links to a large number of available software, tutorials, apps and papers:
   + <https://github.com/seandavi/awesome-single-cell>
 
+
 * Experimental design, batch effects, comparison of protocols and analysis workflows:
   + <http://www.cell.com/cell/abstract/S0092-8674(15)01353-7>
   + <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y>
   + <http://www.nature.com/nmeth/journal/v14/n4/abs/nmeth.4220.html>
   + <http://www.nature.com/nbt/journal/v34/n11/full/nbt.3721.html>
+  + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/>
+
+
+* Unique molecular identifiers, UMI collapse and error correction:
+  + <http://www.nature.com/nmeth/journal/v11/n2/full/nmeth.2772.html>
+  + <https://github.com/CGATOxford/UMI-tools>
+  + <https://hemberg-lab.github.io/scRNA.seq.course/unique-molecular-identifiers-umis.html>
+  + <http://www.nature.com/nmeth/journal/v11/n6/full/nmeth.2930.html>
   + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/>
 
 
