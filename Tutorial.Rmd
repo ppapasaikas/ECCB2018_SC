@@ -474,7 +474,7 @@ In this section we will illustrate different ways to visualize our data using tw
 ### PCA
 **Principal Component Analysis** is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
 
-A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with a number of new features that is only a small fraction of the original ones.
+A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore, each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with a number of new features that is only a small fraction of the original ones.
 
 
 * PCA without selecting for overdispersed genes. 
@@ -558,7 +558,7 @@ grid.arrange(chart_logNODG, chart_batch, ncol=1)
 ### tSNE
 tSNE is a **non-linear**, **stochastic**  projection technique that attempts to find a mapping of the data on a low subspace while preserving local distances between cells.
 The non-linear character of tSNE means that often is will produce projections that better resolve differences between cell groups. The better separation of tSNE comes at the cost of interpretability:
-While in a tSNE projection similar cells are guaranteed to end up nearby, longer distances in the projection **cannot** are not guaranteed to reflect true relationships. This means that it is risky to draw conclusions of "similarity" or "dissimilarity" from the positional relationships of different cell groupings that appear in a tSNE projection.
+While in a tSNE projection similar cells are guaranteed to end up nearby, longer distances in the projection **are not guaranteed** to reflect true relationships. This means that it is risky to draw conclusions of "similarity" or "dissimilarity" from the positional relationships of different cell groupings that appear in a tSNE projection.
 In addition, the stochastic nature of tSNE means that every time the algorithm is applied a different projection will be produced **unlesss a random seed is set**. 
 
 We will first apply QC on the data before filtering for overdispersed genes using the PCA_noSel object from the previous section:
@@ -581,7 +581,7 @@ geom_point(size=4,alpha=0.8)
 grid.arrange(chart_tSNE1, chart_tSNE2, ncol=1)
 ```
 
-Now we will repeat the projection using the PCA_Sel object from the previous section:
+Now we will repeat the projection using the top 25% overdispersed genes (using as input the PCA_Sel object from the previous section):
 
 ```{r tSNE_selection_plot}
 #Compute tSNE projection:
@@ -817,17 +817,17 @@ A common task in any SC experiment setting is the identification of cell groupin
 As we saw in the previouse section, part of the observed variation is coming from sources that are either not biological (e.g technical batch, library size) or that is biological in nature but trivial and unrelated to the question we want to address (cells in different cell cycle stages or apoptotic vs healthy cells are common examples).
 Therefore any clustering approach that fails to account for these unwanted sources of variance **will** produce spurious/trivial cell groupings. 
 
-* One approach to overcome this issue is to explicitly correct for (i.e regress out) unwanted variation. This only applies when the sources of variance are known/can be identified. In addition such approaches come at the risk of overcorrecting and contaminating the data. In the case of unwanted variation that is confounded with the signal of intereset these issues can become particularly problematic.
+* One approach to overcome this issue is to explicitly correct for (i.e regress out) unwanted variation. This only applies when the sources of variance are known/can be identified. In addition such approaches come at the risk of overcorrecting and contaminating the data. In the case of unwanted variation that is confounded with the signal of interest these issues can become particularly problematic.
 
 * Clustering approaches that rely on cell to cell connectivity (graph based / spectral clustering approaches) tend to be robust to unwanted variance that produces continuous distortions to the signal (such as sampling variance):
 
 
-Graph based approaches model cell populations as nodes on a network and try to idenftify well connected node communites (cell groupings).
-They are also non-linear meaning that they can identify clusters that are not separable under linear data transformations. Examples of such algorithms are [*SIMLR*](https://github.com/BatzoglouLabSU/SIMLR),   [*PhenoClust*](https://www.c2b2.columbia.edu/danapeerlab/html/phenograph.html) and the algorithm used in this tutorial [*griph*](https://github.com/ppapasaikas/griph). Typically these approaches perform well (better) than more classical "compactness-based"" clustering approaches (e.g k-means).
+Graph-based approaches model cell populations as nodes on a network and try to idenftify well connected node communites (cell groupings).
+They are also non-linear, meaning that they can identify clusters that are not separable under linear data transformations. Examples of such algorithms are [*SIMLR*](https://github.com/BatzoglouLabSU/SIMLR),   [*PhenoClust*](https://www.c2b2.columbia.edu/danapeerlab/html/phenograph.html) and the algorithm used in this tutorial [*griph*](https://github.com/ppapasaikas/griph). Typically these approaches perform well (better) than more classical "compactness-based"" clustering approaches (e.g k-means).
 
 ![custering_methods](./figures/Clustering_methods.png)
 
-* Unwanted variance that produces discontinuities (think e.g of cell cycle, technical batches) can produce spurious groupings even with connectivity based apporaches. *griph* tries to overcome this issue by enforcing topological constraints. Basically, connections from cells within the same batch are penalized forcing the resulting network topology to reflect the "batch-free" structure of the data. The number of clusters does not have to be (but can be if this is desirable) specified. Instead *griph* will attempt to find the optimal graph separation.
+* Unwanted variance that produces discontinuities (think e.g of cell cycle, technical batches) can produce spurious groupings even with connectivity based apporaches. *griph* tries to overcome this issue by enforcing topological constraints. Basically, connections from cells within the same batch are penalized forcing the resulting network topology to reflect the "batch-free" structure of the data. The number of clusters does not have to be (but can be if this is desirable) specified. Instead, *griph* will attempt to find the optimal graph separation.
 
 ![griph_overview](./figures/griph_overview.png)
 
@@ -1033,17 +1033,17 @@ resSCDE.batch <- scde.expression.difference(o.ifm, cnts, priors, groups, batch =
 
 There are (too) many topics and issues related to SC-sequencing that go beyond the timing and scope of this tutorial and were thus left untouched. Single-cell sequencing technologies, and perhaps more-so the computational tools for the preprocessing and analysis of the resulting data are still in a state of flux. What is more important, the diversity of SC-technologies and SC-based applications has been increasing at an accelerated rate and will keep doing so for the foreseeable future.  
 
-In our view, any course aiming to cover the expansive landscape of SC-sequencing technologies, computational tools and applications would inevitably fall short of its mark (all the more so in the context of a 1-day tutorial!). Instead we aimed to convey some of the data characteristics, computational challenges and principles that are commonplace/generalize well to many SC-sequencing applications. 
+Any course aiming to cover the expansive landscape of SC-sequencing technologies, computational tools and applications would likely fall short of its mark (all the more so for a 1-day tutorial!). Instead we aimed to convey some of the data characteristics, computational challenges and principles that are commonplace/generalize well to many SC-sequencing applications. 
 
 There are, however, a number of topics that we feel can be of general interest which we could not fit in the context of this tutorial and should not be left unmentioned. 
 In this last section we will try to list these topics and provide links to online material for those wishing to dig into them:
 
 
-* A very comprehensive page with links to a large number of available software, tutorials, apps and papers:
+1. A very comprehensive page with links to a large number of available software, tutorials, apps and papers:
   + <https://github.com/seandavi/awesome-single-cell>
 
 
-* Experimental design, batch effects, comparison of protocols and analysis workflows:
+2. Experimental design, batch effects, comparison of protocols and analysis workflows:
   + <http://www.cell.com/cell/abstract/S0092-8674(15)01353-7>
   + <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y>
   + <http://www.nature.com/nmeth/journal/v14/n4/abs/nmeth.4220.html>
@@ -1051,7 +1051,7 @@ In this last section we will try to list these topics and provide links to onlin
   + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/>
 
 
-* Unique molecular identifiers, UMI collapse and error correction:
+3. Unique molecular identifiers, UMI collapse and error correction:
   + <http://www.nature.com/nmeth/journal/v11/n2/full/nmeth.2772.html>
   + <https://github.com/CGATOxford/UMI-tools>
   + <https://hemberg-lab.github.io/scRNA.seq.course/unique-molecular-identifiers-umis.html>
@@ -1059,14 +1059,14 @@ In this last section we will try to list these topics and provide links to onlin
   + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/>
 
 
-* Data structures for SC data (and how to deal with storage/memory needs efficiently):
+4. Data structures for SC data (and how to deal with storage/memory needs efficiently):
   + <http://peterhickey.org/2017-08-01_Peter_Hickey_JSM.pdf>
   + <https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/advanced/h5_matrices>
   + <http://bioconductor.org/packages/release/bioc/html/HDF5Array.html>
   + <https://bioconductor.org/packages/release/bioc/html/DelayedArray.html>
 
 
-* Inference of hierarchical structure/lineage from SC data:
+5. Inference of hierarchical structure/lineage from SC data:
   + <http://www.nature.com/nbt/journal/v35/n6/full/nbt.3854.html>
   + <https://www.nature.com/nmeth/journal/vaop/ncurrent/full/nmeth.4402.html>
   + <http://www.nature.com/nrg/journal/v18/n4/full/nrg.2016.159.html>
@@ -1076,7 +1076,7 @@ In this last section we will try to list these topics and provide links to onlin
   + <http://www.nature.com/nmeth/journal/v13/n10/full/nmeth.3971.html?WT.feed_name=subjects_rna-sequencing>
 
 
-* SC medical advances / applications (really too long a list to cover, only some examples):
+6. SC medical advances / applications (really too long a list to cover, only some examples):
   + <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4441954/>
   + <http://www.sciencedirect.com/science/article/pii/S073497501730040X>
   + <http://genome.cshlp.org/content/25/10/1499.full>
@@ -1085,13 +1085,13 @@ In this last section we will try to list these topics and provide links to onlin
   + <https://www.illumina.com/content/dam/illumina-marketing/documents/products/research_reviews/single-cell-sequencing-research-review.pdf>
 
 
-* Single-cell-based pooled screenings:
+7. Single-cell-based pooled screenings:
   + <http://www.sciencedirect.com/science/article/pii/S0092867416316105>
   + <http://www.sciencedirect.com/science/article/pii/S0092867416316609>
   + <http://www.sciencedirect.com/science/article/pii/S0092867416316117>
 
 
-* Single-cell epigenomics:
+8. Single-cell epigenomics:
   + <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0944-x>
   + <http://www.nature.com/nrg/journal/v16/n12/full/nrg3980.html?foxtrotcallback=true>
   + <http://databio.org/single_cell_epigenomics.html>
