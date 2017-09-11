@@ -27,10 +27,14 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 To illustrate the various aspects of SC analysis, we will use a 
 [dataset](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/) of
  induced pluripotent stem cells generated from three different individuals  (A, B and C) with three replicates of 96 cells each (A.r1, A.r2, A.r3, ...).
+
+![Tung_Experimental_Design](./figures/Tung_Design.png)
 The data were generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
 Fluidigm C1 platform and to facilitate the quantification both unique
-molecular identifiers (UMIs) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/BC2_SingleCell] directory .
+molecular identifiers (UMIs, see figure below) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/BC2_SingleCell] directory .
+![UMIs](./figures/UMI-Seq-protocol.png)
+
 
 Load the data and annotations:
 
@@ -890,7 +894,11 @@ Therefore any clustering approach that fails to account for these unwanted sourc
 Graph based approaches model cell populations as nodes on a network and try to idenftify well connected node communites (cell groupings).
 They are also non-linear meaning that they can identify clusters that are not separable under linear data transformations. Examples of such algorithms are [*SIMLR*](https://github.com/BatzoglouLabSU/SIMLR),   [*PhenoClust*](https://www.c2b2.columbia.edu/danapeerlab/html/phenograph.html) and the algorithm used in this tutorial [*griph*](https://github.com/ppapasaikas/griph). Typically these approaches perform well (better) than more classical "compactness-based"" clustering approaches (e.g k-means).
 
+![custering_methods](./figures/Clustering_methods.png)
+
 * Unwanted variance that produces discontinuities (think e.g of cell cycle, technical batches) can produce spurious groupings even with connectivity based apporaches. *griph* tries to overcome this issue by enforcing topological constraints. Basically, connections from cells within the same batch are penalized forcing the resulting network topology to reflect the "batch-free" structure of the data. The number of clusters does not have to be (but can be if this is desirable) specified. Instead *griph* will attempt to find the optimal graph separation.
+
+![griph_overview](./figures/griph_overview.png)
 
 
 We will first attempt to identify clusters in the dataset without specifying any batch (a uniform penalty will be applied to all network connections):
