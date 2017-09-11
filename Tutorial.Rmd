@@ -1036,7 +1036,8 @@ There are (too) many topics and issues related to SC-sequencing that go beyond t
 Any course aiming to cover the expansive landscape of SC-sequencing technologies, computational tools and applications would likely fall short of its mark (all the more so for a 1-day tutorial!). Instead we aimed to convey some of the data characteristics, computational challenges and principles that are commonplace/generalize well to many SC-sequencing applications. 
 
 There are, however, a number of topics that we feel can be of general interest which we could not fit in the context of this tutorial and should not be left unmentioned. 
-In this last section we will try to list these topics and provide links to online material for those wishing to dig into them:
+In this last section we tried to list these topics and provide links to online material for those wishing to dig into them:
+
 
 
 1. A very comprehensive page with links to a large number of available software, tutorials, apps and papers:
