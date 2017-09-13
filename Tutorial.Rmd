@@ -40,7 +40,7 @@ Load the data and annotations:
 
 ```{r load_data}
 PATH="/home/radmin/BC2_SingleCell/" #Abs Path to BC2 repo in the the ext-fmi machine
-
+PATH=""
 umi_counts=readRDS(file=paste(PATH, "data/tung/umi_counts.rds",sep=""))
 read_counts=readRDS(file=paste(PATH, "data/tung/read_counts.rds",sep=""))
 anno=readRDS(file=paste(PATH, "data/tung/annotation.rds",sep=""))
