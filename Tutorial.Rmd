@@ -1,5 +1,5 @@
 ---
-title: "BC2 Single Cell Tutorial"
+title: "ECCB 2018 Single Cell Tutorial"
 date: "`r BiocStyle::doc_date()`"
 output: 
     BiocStyle::html_document2:
@@ -32,14 +32,14 @@ To illustrate the various aspects of SC analysis, we will use a
 The data were generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
 Fluidigm C1 platform and to facilitate the quantification both unique
-molecular identifiers (UMIs, see figure below) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/BC2_SingleCell] directory .
+molecular identifiers (UMIs, see figure below) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/ECCB2018_SC] directory .
 ![UMIs](./figures/UMI-Seq-protocol.png)
 
 
 Load the data and annotations:
 
 ```{r load_data}
-PATH="/home/radmin/BC2_SingleCell/" #Abs Path to BC2 repo in the the ext-fmi machine
+PATH="/home/radmin/ECCB2018_SC/" #Abs Path to ECCB repo in the the ext-fmi machine
 PATH=""
 umi_counts=readRDS(file=paste(PATH, "data/tung/umi_counts.rds",sep=""))
 read_counts=readRDS(file=paste(PATH, "data/tung/read_counts.rds",sep=""))
