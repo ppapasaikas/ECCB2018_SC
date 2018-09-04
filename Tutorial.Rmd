@@ -22,6 +22,29 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 
 # Single Cell Analysis Tutorial Part 1
 
+Tutorial web-links:
+* Access to the FMI rstudio server:
+https://rstudio-ext.fmi.ch
+
+* Course Material and code on github:
+https://github.com/ppapasaikas/ECCB2018_SC
+
+
+
+## Login and navigate to tutorial directory
+On your browser type:
+https://rstudio-ext.fmi.ch
+
+After logging in with your credentials switch working directory by typing:
+
+```{r Switch to tutorial directory}
+setwd("/home/radmin/ECCB2018_SC/") #Abs Path to ECCB repo in the the ext-fmi machine
+```
+
+From here on you can run the turorial code by copying and pasting on your console.
+Alternatively you can File -> File Open -> Tutorial.rmd and execute the code directly from the file.
+
+
 ## Example Dataset 
 
 To illustrate the various aspects of SC analysis, we will use a 
