@@ -20,29 +20,93 @@ author:
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
-# Single Cell Analysis Tutorial Part 1
 
-Tutorial web-links:
-* Access to the FMI rstudio server:
-https://rstudio-ext.fmi.ch
+# General info
 
-* Course Material and code on github:
+**Course Material and code on github**
 https://github.com/ppapasaikas/ECCB2018_SC
 
 
+**Access to the FMI rstudio server**
 
 ## Login and navigate to tutorial directory
-On your browser type:
+On your browser type: 
+
 https://rstudio-ext.fmi.ch
 
 After logging in with your credentials switch working directory by typing:
 
-```{r Switch to tutorial directory}
+```{r Switch to tutorial directory, eval=FALSE}
 setwd("/home/radmin/ECCB2018_SC/") #Abs Path to ECCB repo in the the ext-fmi machine
 ```
 
 From here on you can run the turorial code by copying and pasting on your console.
 Alternatively you can File -> File Open -> Tutorial.rmd and execute the code directly from the file.
+
+
+# Single Cell Analysis Tutorial Part 1
+
+
+## Why single cell sequencing?
+
+1. Limited input material (e.g early development, circulating tumor cells...)
+2. Study cell autonomous processes (Txn bursting, noise...)
+3. Sample Heterogeneity (mixture of cell types / states) 
+  + Number and frequency of cell types
+  + Markers for cell types
+  + Cell type relationships (developmental/pseudo-temporal ordering)
+
+```{r, echo=FALSE, out.width = "500px"}
+knitr::include_graphics("./figures/Why_single_cell.png")
+```
+
+
+## Overview of experimental and computational workflow
+
+**Experimental workflow**
+Preparation of a SC RNA library typically involves:
+
+1.  Cell dissociation
+2.  Cell isolation (Microfuidics, Droplet based, Combinatorial labelling, FACS / Laser based / Micromanipulation)
+
+
+![Isolation_methods](./figures/Isolation_methods.png)
+Adapted from Beda and Schneider Trends Cell Biol. 2014 Nov;24(11):712-23.
+
+
+3.  Amplification + Sequencing
+
+
+* In the case of high-throughput isolation methods each cell is associated and identifiable via a **cell barcode**.
+* In many (nowdays most) library preparation methods each read also contains a second barcode called **Unique Molecular Identifier (UMI)**.
+  UMIs allow us to discriminate between eads coming from different original mRNAs of the same gene vs reads the were amplified during library preparation.
+
+
+
+
+![scRNAseq_Timeline](./figures/scRNAseq_timeline.jpg)
+
+Adapted from Svensson et al, Nature 2018.
+
+
+![scRNA_Gene_detection](./figures/scRNA_Genes.png)
+
+Adapted from Ziegenhain et al, Mol Cell 2017
+
+
+
+**Computational workflow**
+
+
+![SC_pipeline_preprocessing](./figures/SC_pipeline_preprocessing.png)
+
+
+![SC_pipeline_analyses](./figures/SC_pipeline_analyses.png)
+
+
+
+
+
 
 
 ## Example Dataset 
