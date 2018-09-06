@@ -2,7 +2,7 @@
 title: "ECCB 2018 Single Cell Tutorial"
 date: "`r BiocStyle::doc_date()`"
 output: 
-    BiocStyle::html_document2:
+    BiocStyle::html_document:
         keep_md: yes
         toc_float: true
         md_document:
@@ -38,7 +38,8 @@ https://rstudio-ext.fmi.ch
 After logging in with your credentials switch working directory by typing:
 
 ```{r Switch to tutorial directory, eval=FALSE}
-setwd("/home/radmin/ECCB2018_SC/") #Abs Path to ECCB repo in the the ext-fmi machine
+#Absolute path to ECCB2018_SC repository in the the FMT ext machine
+setwd("/home/radmin/ECCB2018_SC/") 
 ```
 
 From here on you can run the turorial code by copying and pasting on your console.
@@ -80,27 +81,34 @@ Adapted from Beda and Schneider Trends Cell Biol. 2014 Nov;24(11):712-23.
 
 * In the case of high-throughput isolation methods each cell is associated and identifiable via a **cell barcode**.
 * In many (nowdays most) library preparation methods each read also contains a second barcode called **Unique Molecular Identifier (UMI)**.
-  UMIs allow us to discriminate between eads coming from different original mRNAs of the same gene vs reads the were amplified during library preparation.
+  UMIs allow us to discriminate between reads coming from different original mRNAs of the same gene vs reads the were amplified during library preparation.
 
 
+**Methods and Protocols**
 
+The development of new methods and protocols for scRNA-seq is currently a very active area of research. The following image from Svensson et al, Nature 2018 shows several protocols published over the last few years.
 
 ![scRNAseq_Timeline](./figures/scRNAseq_timeline.jpg)
 
-Adapted from Svensson et al, Nature 2018.
+Svensson et al, Nature 2018.
 
+**Platform Choice**
+
+In a recent study, Ziegenhain et al, Mol Cell 2017 compared different scRNAseq protocols on mouse embryonic stem cells (mESCs). The authors controlled the number of cells and the sequencing depth, thereby enabling them to directly compare the sensitivity, noise-levels and costs of the different protocols. One of the conclusions (image below) illustrates that, for a given detection threshold, the number of detected genes vary between different protocols.
 
 ![scRNA_Gene_detection](./figures/scRNA_Genes.png)
 
-Adapted from Ziegenhain et al, Mol Cell 2017
+Ziegenhain et al, Mol Cell 2017
 
 
 
-**Computational workflow**
-
+**Computational workflow: Preprocessing**
+The following image presents the typical preprocessing steps employed in scRNAseq data analyses.
 
 ![SC_pipeline_preprocessing](./figures/SC_pipeline_preprocessing.png)
 
+
+**Computational workflow: Data Analyses**
 
 ![SC_pipeline_analyses](./figures/SC_pipeline_analyses.png)
 
@@ -113,14 +121,13 @@ Adapted from Ziegenhain et al, Mol Cell 2017
 ## Example Dataset 
 
 To illustrate the various aspects of SC analysis, we will use a 
-[dataset](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/) of
- induced pluripotent stem cells generated from three different individuals  (A, B and C) with three replicates of 96 cells each (A.r1, A.r2, A.r3, ...).
+[dataset](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5206706/) of induced pluripotent stem cells generated from three different individuals  (A, B and C) with three replicates of 96 cells each (A.r1, A.r2, A.r3, ...).
 
 ![Tung_Experimental_Design](./figures/Tung_Design.png)
 The data were generated in [Yoav Gilad](http://giladlab.uchicago.edu/)'s lab at the
 University of Chicago. The experiments were carried out on the
 Fluidigm C1 platform and to facilitate the quantification both unique
-molecular identifiers (UMIs, see figure below) and ERCC _spike-ins_ were used. The data files are located in the `data\tung` folder in the [/home/radmin/ECCB2018_SC] directory .
+molecular identifiers (UMIs, see figure below) and ERCC _spike-ins_ were used. The data files are located in the `data/tung` folder in the [/home/radmin/ECCB2018_SC] directory .
 ![UMIs](./figures/UMI-Seq-protocol.png)
 
 
@@ -961,7 +968,11 @@ counts[runif(1000) < d] = 0;
 hist(counts, col="grey50", xlab="Read Counts", main="Zero-inflated NB");
 ```
 
-* For this type of data a variety of zero-inflated negative binomial models have been proposed (e.g. [*MAST*](https://bioconductor.org/packages/release/bioc/html/MAST.html), [*SCDE*](http://bioconductor.org/packages/release/bioc/html/scde.html)). 
+* For differential expression, we will look at Wilcox Rank Sum Test and two methods proposed for zero-inflated negative binomial models: (e.g. [*MAST*](https://bioconductor.org/packages/release/bioc/html/MAST.html), [*SCDE*](http://bioconductor.org/packages/release/bioc/html/scde.html)). 
+
+For coprehensive comparison of differential gene expression analyses of scRNAseq data:
+[*Bias, robustness and scalability in single-cell differential expression analysis*]
+(https://www.nature.com/articles/nmeth.4612)
 
 Here we perform differentail expression between individual B and C
 
@@ -972,9 +983,37 @@ group <- clean_anno[keep,1]
 batch <- clean_anno[keep,4]
 
 # Gene Filter: expressed in at least 6 cells
-gkeep <- rowSums(clean_norm_umi_counts[,keep] > 0) > 5;
+gkeep <- rowSums(clean_norm_umi_counts[,keep] > 0) > 5 &
+  rownames(clean_norm_umi_counts) %in% endog;
 counts <- clean_norm_umi_counts[gkeep,keep]
 ```
+
+### Wilcoxon Test
+
+Often described as the non-parametric version of the two-sample t-test, Wilcoxon Rank Sum Test
+assumes that the two samples are independent of one another, and the two populations have equal variance or spread. It does NOT assume that two populations are normally distributed.
+The magnitude of difference in means between groups C and B represents the fold change.
+
+```{r Wilcox, message=FALSE}
+# To speed up analyses we select a random set of 1000 endogenous genes
+gkeep=sample(endog,1000)
+counts1 <- clean_norm_umi_counts[gkeep, keep]
+dim(counts1)
+
+p_val <- sapply(
+    X = 1:nrow(counts1),
+    FUN = function(x) {
+      return(wilcox.test(counts1[x, ] ~ group)$p.value)
+    }
+  )
+p_val <- p.adjust(p_val,method = "BH")
+summary(p_val)
+
+# Select the gene with lowest p_val
+selGene <- rownames(counts1)[order(p_val)][1]
+plotLVis(griph_res, fill.type = clean_norm_umi_counts[selGene,], mark.type = clean_anno[,1])
+```
+The griph plot above shows the expression of gene with lowest p-value for our limited comparison. 
 
 ### MAST
 MAST is based on a zero-inflated negative binomial model. It tests for differential expression using a hurdle model to combine tests of discrete (0 vs not zero) and continuous (non-zero values) aspects of gene expression. Again this uses a linear modelling framework to enable complex models to be considered.
