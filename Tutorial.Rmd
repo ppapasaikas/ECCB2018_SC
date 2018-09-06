@@ -929,10 +929,9 @@ They are also non-linear, meaning that they can identify clusters that are not s
 
 We will first attempt to identify clusters in the dataset without specifying any batch (a uniform penalty will be applied to all network connections):
 ```{r griph, message=FALSE}
-#Run griph clustering without specifying any batch:
+#Run griph clustering without specifying any batch & plot a projection of the data using the griph distance matrix:
 griph_res <- griph_cluster(as.matrix(clean_umi_counts[endog,]), plot=TRUE,rho=0.4, use.par = FALSE)
 
-#Plot a projection of the data using the griph distance matrix
 #Mark originating batch, originating individual and predicted cluster
 plotLVis(griph_res, fill.type = clean_anno[,4], line.type = "predicted", mark.type=clean_anno[,1])
 ```
@@ -940,10 +939,9 @@ Notice that groupings of cells coming from the same individual are the most prom
 
 We will now re-run griph specifying the originating chip as a batch. Connections between cells of the same batch will be penalized, changing the topology of the graph:
 ```{r griph_batch, message=FALSE}
-#Run griph clustering specifying as batch the originating chip:
+#Run griph clustering specifying as batch the originating chip & plot the projection:
 griph_res_batch <- griph_cluster(as.matrix(clean_umi_counts[endog,]), BatchAssignment=clean_anno[,4], batch.penalty=1 ,plot=TRUE,rho=0.4, use.par = FALSE)
 
-#Plot a projection of the data using the griph distance matrix
 #Mark originating batch, originating individual and predicted cluster
 plotLVis(griph_res_batch, fill.type=clean_anno[,4], line.type = "predicted", mark.type=clean_anno[,1] )
 ```
