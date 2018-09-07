@@ -31,7 +31,7 @@ https://github.com/ppapasaikas/ECCB2018_SC
 ## Login and navigate to tutorial directory
 On your browser type: 
 
-https://rstudio-ext.fmi.ch
+http://rstudio-ext.fmi.ch
 
 After logging in with your credentials switch working directory by typing:
 
