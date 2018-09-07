@@ -10,8 +10,6 @@ output:
 author:
 - name: Atul Sethi
   email: atul.sethi@fmi.ch
-- name: Michael Stadler
-  email: michael.stadler@fmi.ch
 - name: Panagiotis Papasaikas
   email: panagiotis.papasaikas@fmi.ch  
 ---
