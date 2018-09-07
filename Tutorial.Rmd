@@ -10,8 +10,6 @@ output:
 author:
 - name: Atul Sethi
   email: atul.sethi@fmi.ch
-- name: Michael Stadler
-  email: michael.stadler@fmi.ch
 - name: Panagiotis Papasaikas
   email: panagiotis.papasaikas@fmi.ch  
 ---
@@ -33,7 +31,7 @@ https://github.com/ppapasaikas/ECCB2018_SC
 ## Login and navigate to tutorial directory
 On your browser type: 
 
-https://rstudio-ext.fmi.ch
+http://rstudio-ext.fmi.ch
 
 After logging in with your credentials switch working directory by typing:
 
@@ -43,7 +41,7 @@ setwd("/home/radmin/ECCB2018_SC/")
 ```
 
 From here on you can run the turorial code by copying and pasting on your console.
-Alternatively you can File -> File Open -> Tutorial.rmd and execute the code directly from the file.
+Alternatively you could File -> File Open -> Tutorial.rmd and execute the code directly from the file.
 
 
 # Single Cell Analysis Tutorial Part 1
