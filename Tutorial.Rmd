@@ -497,7 +497,7 @@ One possible approach would be to use the mean-variance trend fit constructed ab
 ```{r mean_cv_plot2}
 #calculate the genes' mean expresion (with pseudocounts):
 mean_GE=rowMeans(clean_norm_umi_counts+1/ncol(clean_norm_umi_counts))
-
+ 
 #calculate the genes' coefficient of variation for:
 gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 
