@@ -175,8 +175,16 @@ Finally we will also load a few packages and functions that will be used during 
 source(paste(PATH, "helper_functions.R",sep=""))
 ```
 
-The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
-that results in high sampling noise. Several of the "effects" of this property can be evidenced in a scatterplot of (umi-collapsed) gene counts between pairs of cells:
+
+
+
+
+The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell that results in high sampling noise:
+
+![SC_sources_of_noise](./figures/SC_noise.png)
+
+
+Several of the "effects" of this property can be evidenced in a scatterplot of (umi-collapsed) gene counts between pairs of cells:
 
 
 ```{r cell2cell}

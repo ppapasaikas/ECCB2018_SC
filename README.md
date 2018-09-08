@@ -27,7 +27,7 @@ setwd("/home/radmin/ECCB2018_SC/")
 ```
 
 From here on you can run the turorial code by copying and pasting on your console.
-Alternatively you can File -> File Open -> Tutorial.rmd and execute the code directly from the file.
+Alternatively you could File -> File Open -> Tutorial.rmd and execute the code directly from the file.
 
 
 # Single Cell Analysis Tutorial Part 1
