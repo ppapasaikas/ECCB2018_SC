@@ -171,7 +171,6 @@ ENS2HGNC=readRDS( file=paste(PATH, "data/tung/ENS2HGNC.rds",sep="")   ) #Gene sy
 ```
 
 
-
 Finally we will also load a few packages and functions that will be used during the training:
 
 ```r
@@ -180,14 +179,15 @@ source(paste(PATH, "helper_functions.R",sep=""))
 
 
 
+## Exaggerated dispersion of measurements
 
 
-The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell that results in high sampling noise:
+The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is that measurements are subject to multiple, potent and often confounded sources of variance:
 
-![SC_sources_of_noise](./figures/SC_noise.png)
+![SC_sources_of_variance](./figures/SC_noise.png)
 
 
-Several of the "effects" of this property can be evidenced in a scatterplot of (umi-collapsed) gene counts between pairs of cells:
+Some of the "effects" of this property can be evidenced in scatterplots of (umi-collapsed) gene counts between pairs of cells:
 
 
 
