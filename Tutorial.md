@@ -232,7 +232,7 @@ These traits inlude:
 
 ### Transcript Capture efficiency
 Capture efficiency is the proportion of transcript molecules present in a cell that are detected in the final cell library.
-Capture efficiency varies widely among different SC RNA seq platforms and can be anywhere between x and y %.
+Capture efficiency varies widely among different SC RNA seq platforms.
 Capture efficiency can also vary among different cells within a single experiment (e.g because of RNA degradation, incomplete cell lysis etc).
 For a given gene the probability of detection is (obviously) a function of its level of expression:
 
@@ -257,7 +257,7 @@ Library size is the number of unique transcript molecules that are detected in a
 ```r
 #Produce a histogram of the library sizes in the dataset
 use.data=umi_counts[endog,]
-hist(colSums(use.data)/1e6, xlab="Library size (millions)", breaks=20, col="grey80", ylab="Number of cells")
+hist(colSums(use.data)/1e6, xlab="Library size (millions)", breaks=20, col="grey80", ylab="Number of cells",main="Library Size")
 ```
 
 ![](Tutorial_files/figure-html/library_size-1.png)
@@ -267,10 +267,10 @@ Two indices related to library size are the number of detected genes and its con
 ```r
 par(mfrow=c(1,2))
 #Histogram of number of detected genes:
-hist(colSums(umi_counts>0),  xlab="Number of detected genes", breaks=20, col="grey80", ylab="Number of cells")
+hist(colSums(umi_counts>0),  xlab="Number of detected genes", breaks=20, col="grey80", ylab="Number of cells",main="NODGs")
 
 #Histogram of number of dropout values:
-hist(colSums(umi_counts==0), xlab="Number of dropout values", breaks=20, col="grey80", ylab="Number of cells")
+hist(colSums(umi_counts==0), xlab="Number of dropout values", breaks=20, col="grey80", ylab="Number of cells", main="Dropouts")
 ```
 
 ![](Tutorial_files/figure-html/ndet_genes-1.png)
@@ -390,7 +390,7 @@ plot (colSums(umi_counts>0),colSums(umi_counts[mt,])/colSums(umi_counts) ,pch=19
 
 ### Gene dispersion as a function of their mean expression (Mean-variance trend)
 Variation in gene abundance estimates between different cells can be thought of as the convolution of the technical (mainly sampling) and the biological (e.g cell type) sources of variance. Typically one wants to isolate and focus on the biological variance so that differences due to experimental noise have as small an impact as possible on subsequent analyses.  
-As might be intuitevely obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected just because of chance). This simple intuition is nicely captured in a plot of the gene's dispersion as a function of the mean gene expression also known as the *mean variance trend*. Here as a measure of dispersion we will use the coefficient of variation (cv=variance/mean):
+As might be intuitively obvious the effects of sampling noise on our estimates of relative gene abundance decrease with higher levels of gene expression. For example we expect two measurements of a highly expressed gene in two cells of the same type to be more consistent than two measurements of a rare gene (where big fold change differences can be expected just because of chance). This simple intuition is nicely captured in a plot of the gene's dispersion as a function of the mean gene expression also known as the *mean variance trend*. Here as a measure of dispersion we will use the coefficient of variation (cv=variance/mean):
 
 
 ```r
@@ -419,14 +419,14 @@ plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) 
 
 # Slope in m-v trend according to poisson distribution:
-abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) 
+abline(0,-0.5,col="grey",lwd=2,lty=2) 
 
 #Add the ERCC points:
 points(X1[ERCC],Y1[ERCC],pch=19,col="green",cex=0.5)
 ```
 
 ![](Tutorial_files/figure-html/mean_cv_plot-1.png)
-Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (because of sampling).
+Our fit (red line) represents, for this dataset, the expected variance of a gene when the only source of variance is technical (e.g because of sampling).
 Genes that fall far above this line are  *overdispersed* and should be enriched for genes the fluctuation of which is of biological origin. 
 
 Notice the high variance of the ERCCs. How does the plot change if we first remove the problematic batch (A.r2) identified above?
@@ -444,7 +444,7 @@ m=lm(Y1[endog] ~ X1[endog])
 
 plot(X1[endog],Y1[endog],xlab="log2(mean gene expression)",ylab="log2(coefficent of variation)" ,main="mean-variance trend",pch='.',cex=2,col="#00000055" )
 abline(coef(m)[1],coef(m)[2],col="red",lwd=2,lty=2) # Linear regression on the data
-abline(coef(m)[1],-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
+abline(0,-0.5,col="grey",lwd=2,lty=2) # Slope in m-v trend according to poisson distribution
 points(X1[ERCC],Y1[ERCC],pch=19,col="green",cex=0.5)
 ```
 

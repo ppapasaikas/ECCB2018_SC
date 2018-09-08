@@ -219,8 +219,7 @@ legend( "bottomright", legend=c("Dropouts (undetected genes)","Overdispersed gen
 ## Quality control (QC) and important quantitative traits of the dataset
 
 We will now look into some of the most important general quantitative traits of the dataset.
-These traits provide a first line of quality assessment of the experiment and the individual cells. As such, they can be used
-during data pre-processing as quality filters (see next section).
+These traits provide a first line of quality assessment of the experiment and the individual cells. As such, they can be used during data pre-processing as quality filters (see next section).
 These traits inlude:
 
 * Transcript Capture efficiency
