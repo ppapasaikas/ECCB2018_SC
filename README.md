@@ -85,6 +85,7 @@ Ziegenhain et al, Mol Cell 2017
 
 
 **Computational workflow: Preprocessing**
+
 The following image presents the typical preprocessing steps employed in scRNAseq data analyses.
 
 ![SC_pipeline_preprocessing](./figures/SC_pipeline_preprocessing.png)
@@ -177,8 +178,16 @@ Finally we will also load a few packages and functions that will be used during 
 source(paste(PATH, "helper_functions.R",sep=""))
 ```
 
-The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell
-that results in high sampling noise. Several of the "effects" of this property can be evidenced in a scatterplot of (umi-collapsed) gene counts between pairs of cells:
+
+
+
+
+The most important characteristic of any SC RNAseq assay that sets them apart from bulk RNAseq is the small starting RNA amounts per cell that results in high sampling noise:
+
+![SC_sources_of_noise](./figures/SC_noise.png)
+
+
+Several of the "effects" of this property can be evidenced in a scatterplot of (umi-collapsed) gene counts between pairs of cells:
 
 
 
@@ -552,7 +561,7 @@ One possible approach would be to use the mean-variance trend fit constructed ab
 ```r
 #calculate the genes' mean expresion (with pseudocounts):
 mean_GE=rowMeans(clean_norm_umi_counts+1/ncol(clean_norm_umi_counts))
-
+ 
 #calculate the genes' coefficient of variation for:
 gene_cv=apply(clean_norm_umi_counts,1, function(x) sd(x)/mean(x+1/length(x)) )
 
@@ -625,9 +634,11 @@ endog=setdiff(endog,unique( c(mt,rib.prot) ) )
 
 
 ## Data Visualization (PCA and tSNE)
+
 In this section we will illustrate different ways to visualize our data using two commonly used projection techniques, namely **Principal Component Analysis (PCA)** and **t-Distributed Stochastic Neighbor Embedding (tSNE)**. We will also use these techniques to illustrate what is the effect of selecting only a top fraction of overdispersed genes for data visualization (and consequently cell clustering). 
 
 ### PCA
+
 **Principal Component Analysis** is a linear transformation procedure that identifies the directions of maximum variance in high-dimensional data and projects it in a lower dimension subspace. Every direction is orthogonal to the previously identified ones and therefore the final result is a projection on a new coordinate system that still retains the maximum possible variance. 
 
 A perhaps more intuitive explanation is that PCA seeks summary features (i.e components), that are originally not explicitly there, that capture well the overall dispersion (variance) of our data. Each subsequent summary feature (component) captures the maximum possible dispersion left behind from the previous components. The only condition is that every new summary feature must be uncorrelated (i.e orthogonal) to all the previous ones. Therefore, each added summary feature will account for progressively lower fractions of the overall dataset dispersion. A dataset where only a handful of such summary features capture a large part of its overall dispersion can thus be nicely summarized with a number of new features that is only a small fraction of the original ones.
@@ -728,6 +739,7 @@ grid.arrange(chart_logNODG, chart_batch, ncol=1)
 
 
 ### tSNE
+
 tSNE is a **non-linear**, **stochastic**  projection technique that attempts to find a mapping of the data on a low subspace while preserving local distances between cells.
 The non-linear character of tSNE means that often is will produce projections that better resolve differences between cell groups. The better separation of tSNE comes at the cost of interpretability:
 While in a tSNE projection similar cells are guaranteed to end up nearby, longer distances in the projection **are not guaranteed** to reflect true relationships. This means that it is risky to draw conclusions of "similarity" or "dissimilarity" from the positional relationships of different cell groupings that appear in a tSNE projection.
@@ -832,13 +844,19 @@ Log_NODG <- log2(colSums(umi.qc[endog.qc,]>0)+1)
 ```
 
 ### RUVg
+
 *RUVg* uses negative control genes, assumed to have constant expression across samples
-  + However, there are issues with the use of spike-ins for normalisation (particularly ERCCs, derived from bacterial sequences), including that their variability can, for various reasons, actually be higher than that of endogenous genes.
-  + Better results can often be obtained by using endogenous genes (when, on average, large number of endogenous genes do not vary systematically between cells and where we expect technical effects to affect a large number of genes (a very common and reasonable assumption)
+
+* However, there are issues with the use of spike-ins for normalisation (particularly ERCCs, derived from bacterial sequences), including that their variability can, for various reasons, actually be higher than that of endogenous genes.
+
+* Better results can often be obtained by using endogenous genes (when, on average, large number of endogenous genes do not vary systematically between cells and where we expect technical effects to affect a large number of genes (a very common and reasonable assumption)
+
 
 The RUVg function returns two pieces of information: 
-  + the estimated factors of unwanted variation and
-  + the normalized counts obtained by regressing the original counts on the unwanted factors. 
+
+* the estimated factors of unwanted variation, and
+
+* the normalized counts obtained by regressing the original counts on the unwanted factors. 
   
 These normalized counts should be used only for exploration, cell types identification, etc. It is important that any subsequent differential expression analysis be done on the original counts as removing the unwanted factors from the counts can also remove part of a factor of interest.
 
@@ -883,8 +901,12 @@ rm(umi.qc.ruvg); rm(PCA); rm(tSNE); rm(datt)
 
 
 ### *RUVs*
+
 *RUVs* uses centered (technical) replicate/negative control samples for which the covariates of interest are constant
-  + Assume replicate samples for which the biological covariates of interest are constant. Then, their count differences behave like those of negative control samples, as they contain no effects of interest.
+
+* Assume replicate samples for which the biological covariates of interest are constant. 
+
+* Then, their count differences behave like those of negative control samples, as they contain no effects of interest.
 
 First, we need to construct a matrix specifying the replicates. In our case, we can consider the three individuals with 2-3 replicates. 
 
@@ -956,11 +978,19 @@ rm(umi.qc.ruvs); rm(PCA); rm(tSNE); rm(datt)
 
 For every single gene, we fit a mixed model assuming differences between batches are not individual-specific as follows
 
-$$ y_{ijk} = \mu + \alpha_i + b_j + \epsilon_{ijk} $$,
+$$ y_{ijk} = \mu + \alpha_i + b_j + \epsilon_{ijk} $$
 
-where $y_{ijk}$ is the log2 counts-per-million (cpm) for any gene in individual $i$, batch $j$, and cell $k$, $\mu$ is the gene-specific expression level across all cells, $\alpha_i$ is the expression level specific to individual $i$, $b_j$ is batch $j$'s deviation of expression level from gene-specific expression levels, and $\epsilon_{ijk}$ is the models' residual error.
+where 
+* $y_{ijk}$ is the log2 counts-per-million (cpm) for any gene in individual $i$
+* batch $j$, and cell $k$, $\mu$ is the gene-specific expression level across all cells
+* $\alpha_i$ is the expression level specific to individual $i$
+* $b_j$ is batch $j$'s deviation of expression level from gene-specific expression levels, and
+* $\epsilon_{ijk}$ is the models' residual error.
 
-We assume that $b_j$ follows a normal distribution with $b_j \sim N(0, \sigma^2_b)$ for $j = 1, \dots, 9$, and $\epsilon_{ijk} \sim N(0, \sigma^2_\epsilon)$ for $i = 1, 2, 3; j = 1, \dots, 9; and k = 1, \dots, n_{ij}$, where $n_ij$ denotes the number of cells in individual $i$, batch $j$
+We assume that
+* $b_j$ follows a normal distribution with $b_j \sim N(0, \sigma^2_b)$ for $j = 1, \dots, 9$
+* $\epsilon_{ijk} \sim N(0, \sigma^2_\epsilon)$ for $i = 1, 2, 3; j = 1, \dots, 9; and k = 1, \dots, n_{ij}$
+* $n_ij$ denotes the number of cells in individual $i$, batch $j$
 
 
 ```r
@@ -1083,11 +1113,10 @@ hist(counts, col="grey50", xlab="Read Counts", main="Zero-inflated NB");
 
 ![](Tutorial_files/figure-html/zirnbiom-1.png)
 
-* For differential expression, we will look at Wilcox Rank Sum Test and two methods proposed for zero-inflated negative binomial models: (e.g. [*MAST*](https://bioconductor.org/packages/release/bioc/html/MAST.html), [*SCDE*](http://bioconductor.org/packages/release/bioc/html/scde.html)). 
+* For differential expression, we will look at Wilcox Rank Sum Test and two methods proposed for zero-inflated negative binomial models: [*MAST*](https://bioconductor.org/packages/release/bioc/html/MAST.html) and  [*SCDE*](http://bioconductor.org/packages/release/bioc/html/scde.html).
 
-For coprehensive comparison of differential gene expression analyses of scRNAseq data:
-[*Bias, robustness and scalability in single-cell differential expression analysis*]
-(https://www.nature.com/articles/nmeth.4612)
+* For coprehensive comparison of differential gene expression analyses of scRNAseq data:
+[*Bias, robustness and scalability in single-cell differential expression analysis*](https://www.nature.com/articles/nmeth.4612)
 
 Here we perform differentail expression between individual B and C
 
@@ -1168,8 +1197,11 @@ cond <- relevel(colData(obj)$cond,"B")
 colData(obj)$cond <- cond
 
 # Model expression as function of condition & number of detected genes
+# **************** DON'T RUN THIS
 # zlmCond <- zlm(~cond + cngeneson, obj) 
 # saveRDS(zlmCond,paste0(PATH,"data/zlmCond.rds"))
+
+# **************** Load pre-computed data
 zlmCond <- readRDS(paste0(PATH,"data/zlmCond.rds"))
 ```
 
@@ -1177,11 +1209,13 @@ We could run a likelihood ratio test here, testing for differences when we drop 
 
 
 ```r
+# **************** DON'T RUN THIS
 #summaryCond <- summary(zlmCond, doLRT="condC")
 #saveRDS(summaryCond,paste0(PATH,"data/summaryCond.rds"))
-summaryCond <- readRDS(paste0(PATH,"data/summaryCond.rds"))
 
-summaryDt <- summaryCond$datatable
+# **************** Load pre-computed data
+summaryCond <- readRDS(paste0(PATH,"data/summaryCond.rds"))
+summaryDt   <- summaryCond$datatable
 
 # Merge hurdle P values and logFC coefficients
 fcHurdle <- merge(summaryDt[contrast=='condC' & component=='H',.(primerid, `Pr(>Chisq)`)], 
@@ -1226,7 +1260,8 @@ To estimate the intergene correlation of the contrast, MAST uses bootstrapping. 
 
 
 ```r
-load(paste0(PATH,"data/human_H_v5p2.rdata")) # H hallmark gene sets (Hs.H)
+# Load Hallmark Gene Set (Hs.H) from MSigDB
+load(paste0(PATH,"data/human_H_v5p2.rdata")) 
 names(Hs.H) <- gsub("HALLMARK_","",names(Hs.H))
 tmp <- select(org.Hs.eg.db, keys=unique(unlist(Hs.H)), columns=c("ENSEMBL"), keytype="ENTREZID")
 Hs.H <- lapply(Hs.H, function(x) as.character(tmp[match(x,tmp[,"ENTREZID"]),"ENSEMBL"]))
@@ -1237,16 +1272,13 @@ sets_indices <- limma::ids2indices(Hs.H, rownames(counts))
 sets_indices <- sets_indices[sapply(sets_indices, length) >= 5]
 
 # **************** DON'T RUN THIS: processing time (5+ hrs) 
-# **************** Load pre-computed data
 # Bootstrap, resampling cells, R should be set to >50
 # boots <- bootVcov1(zlmCond, R=70)
 # saveRDS(boots,paste0(PATH,"data/boots.rds"))
-boots <- readRDS(paste0(PATH,"data/boots.rds"))
-
-# **************** DON'T RUN THIS
-# **************** Load pre-computed data
+# boots <- readRDS(paste0(PATH,"data/boots.rds"))
 # gsea <- gseaAfterBoot(zlmCond, boots, sets_indices, CoefficientHypothesis("condC")) 
 # saveRDS(gsea,paste0(PATH,"data/gsea.rds"))
+# **************** Load pre-computed data
 gsea <- readRDS(paste0(PATH,"data/gsea.rds"))
 
 z_stat_comb <- summary(gsea, testType='normal')
@@ -1300,19 +1332,22 @@ names(group) <- 1:length(group)
 colnames(cnts) <- 1:length(group)
 
 # Fitting error models
-o.ifm <- scde::scde.error.models(counts = cnts, groups = group, n.cores = 1, threshold.segmentation = TRUE, 
-                                 save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 0, min.size.entries = 2)
+o.ifm <- scde.error.models(counts = cnts, groups = group, 
+                           n.cores = 1, threshold.segmentation = TRUE,
+                           save.crossfit.plots = FALSE, save.model.plots = FALSE,
+                           verbose = 0, min.size.entries = 2)
 
 # Remove particularly poor cells
 valid.cells <- o.ifm$corr.a > 0
 o.ifm <- o.ifm[valid.cells, ]
 
 # Define an expression magnitude prior for the genes
-priors <- scde::scde.expression.prior(models = o.ifm, counts = cnts, length.out = 400, show.plot = FALSE )
+priors <- scde.expression.prior(models = o.ifm, counts = cnts, 
+                                length.out = 400, show.plot = FALSE )
 
 # Testing for differential expression
-resSCDE <- scde::scde.expression.difference(o.ifm, cnts, priors, groups = group, n.randomizations = 100,
-                                            n.cores = 1, verbose = 0)
+resSCDE <- scde.expression.difference(o.ifm, cnts, priors, groups = group, 
+                                      n.randomizations = 100, n.cores = 1, verbose = 0)
 
 # Top upregulated genes (tail would show top downregulated ones)
 head(resSCDE[order(resSCDE$Z, decreasing  =  TRUE), ])
@@ -1322,8 +1357,10 @@ pVals <- pnorm(abs(resSCDE$cZ), lower.tail = FALSE) * 2
 pVals <- p.adjust(pVals, method = "fdr")
 
 # Correcting for batch effects
-resSCDE.batch <- scde.expression.difference(o.ifm, cnts, priors, groups, batch = batch, 
-                                            n.randomizations = 100, n.cores = 1, return.posteriors = TRUE, verbose = 1)
+resSCDE.batch <- scde.expression.difference(o.ifm, cnts, priors, groups = group, 
+                                            batch = batch, n.randomizations = 100, 
+                                            n.cores = 1, return.posteriors = TRUE, 
+                                            verbose = 1)
 ```
 
 
