@@ -264,6 +264,7 @@ hist(colSums(umi_counts==0), xlab="Number of dropout values", breaks=20, col="gr
 Library size and number of detected genes depend on overall transcript capture efficiency but also on the identity and state of the individual cells.
 
 It is often convenient/useful to normalize the count table to the cells' library sizes:
+
 ```{r library_normalization}
 #Normalize for library size (only endogenous genes) and convert to CPMs:
 norm_umi_counts=sweep(umi_counts,2,colSums(umi_counts[endog,]),FUN="/")*1e6 
